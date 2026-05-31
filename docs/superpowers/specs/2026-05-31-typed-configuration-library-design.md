@@ -2,13 +2,48 @@
 
 ## Architecture
 
-The library provides a single `Configuration` class template. Each section type is a user-defined struct passed as a template parameter. The class deserializes JSON sections into typed structs. Read-only — no persistence.
+The library provides a single `Configuration` class template. Each section type inherits from `Section` base class and uses `read<T>()` to fetch values from its JSON sub-object. Lazy loading — the file is read once on first `get<T>()` call, then cached.
 
 Data flow:
-1. `Configuration<Cache, Client>` reads `configuration.json` → `nlohmann::json` tree
-2. For each section `S`, looks up `json[S::section_name()]` and calls `S::from_json(section, json_section)`
+1. `Configuration<Cache, Server>` constructor stores path, defers file read
+2. First `get<Cache>()` triggers `load()` which parses JSON and populates all sections
+3. Subsequent `get<T>()` calls return cached section references
 
 ## Components & Interfaces
+
+### Section base class
+
+```cpp
+class Section {
+protected:
+    nlohmann::json const& m_json;
+
+    template<typename T>
+    T read(std::string_view key, T default_value) const {
+        return m_json.value(key, default_value);
+    }
+};
+```
+
+### Concrete sections
+
+Each section inherits from `Section`, defines fields with defaults, and implements `load()`:
+
+```cpp
+struct Cache : Section {
+    bool enabled = true;
+    std::string path = "./cache.db";
+    int64_t default_ttl_seconds = 300;
+
+    static constexpr std::string_view section_name() { return "cache"; }
+
+    void load(nlohmann::json const& section_json) {
+        enabled = read(section_json, "enabled", true);
+        path = read(section_json, "path", "./cache.db");
+        default_ttl_seconds = read(section_json, "default_ttl_seconds", 300LL);
+    }
+};
+```
 
 ### Configuration class
 
@@ -16,42 +51,33 @@ Data flow:
 template<typename... Sections>
 class Configuration {
 public:
-    explicit Configuration(std::string_view config_path);
-    explicit Configuration(nlohmann::json json_data);
+    explicit Configuration(std::string_view config_path = "./config.json");
 
     template<typename S>
     const S& get() const;
 
 private:
+    std::string m_path;
     nlohmann::json m_json;
     std::tuple<Sections...> m_sections;
+    mutable bool m_loaded = false;
+
+    void load() const;
+
+    template<typename S>
+    void deserialize_section(nlohmann::json const& json);
 };
 ```
 
-### Section struct requirements
-
-Each section type `S` must provide:
-
-```cpp
-struct Cache {
-    bool enabled = true;
-    std::string path = "./cache.db";
-
-    static constexpr std::string_view section_name() { return "cache"; }
-    static void from_json(Cache& self, nlohmann::json const& j);
-};
-```
-
-- `section_name()` — returns the JSON key for this section
-- `from_json()` — deserializes a JSON object into the struct, validates values
-
-Custom types within sections can use either nested JSON objects or flat key-value pairs — `from_json` handles the mapping.
+- `m_loaded` ensures lazy load happens exactly once
+- `deserialize_section<S>(json)` looks up `json[S::section_name()]` and calls `S::load(json_section)`
+- Missing section throws `std::runtime_error`
 
 ## Data Flow
 
-- **Load from file**: JSON file → `nlohmann::json` → per-section `from_json()` calls → typed struct instances
-- **Load from memory**: `nlohmann::json` → per-section `from_json()` calls → typed struct instances
-- **Get**: Returns const reference to the stored section struct
+- **Constructor**: stores path, defers file read
+- **First `get<T>()`**: triggers `load()` which reads file into `m_json`, creates all sections, calls `section.load()` on each
+- **Subsequent `get<T>()`**: returns cached reference, no file IO
 
 ## Error Handling
 
@@ -70,12 +96,12 @@ Test scenarios:
 - Missing section throws runtime_error
 - Malformed JSON throws runtime_error
 - File not found throws runtime_error
-- Constructor from nlohmann::json works correctly
+- Lazy load: section not loaded before first `get<T>()` call
 
 ## File Structure
 
 ```
-include/configuration.hpp    — Configuration class template
+include/configuration.hpp    — Configuration class template + Section base class
 tests/
     configuration_test.cpp   — library functionality tests
 ```
