@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a header-only C++23 typed configuration library that loads JSON config files into strongly-typed section structs.
+**Goal:** Build a header-only C++23 typed configuration library that loads JSON config files into strongly-typed section structs. Read-only — no persistence.
 
-**Architecture:** A single `Configuration<Sections...>` class template wraps nlohmann::json. Each section struct provides `section_name()`, `from_json()`, and `to_json()` static methods. The library deserializes JSON sections into typed structs on load, and serializes them back on save. Single-attribute path-based set/save is supported via dot-separated paths like `"cache.enabled"`.
+**Architecture:** A single `Configuration<Sections...>` class template wraps nlohmann::json. Each section struct provides `section_name()` and `from_json()` methods. The library deserializes JSON sections into typed structs on load. Supports construction from file path or from an in-memory `nlohmann::json` object.
 
 **Tech Stack:** C++23, CMake 3.27, nlohmann/json (via FetchContent), GoogleTest (via FetchContent), CLion/AppleClang on macOS.
 
 ---
 
-### Task 1: Update CMakeLists.txt and create project structure
+### Task 1: Create library and tests
 
 **Files:**
 - Modify: `CMakeLists.txt` — replace existing content with configuration library build + test support
@@ -136,7 +136,6 @@ Create the header-only Configuration class:
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <utility>
 
 namespace configuration {
 
@@ -145,7 +144,12 @@ class Configuration {
 public:
     explicit Configuration(std::string_view config_path)
         : m_config_path(std::string(config_path)) {
-        load();
+        load_from_file();
+    }
+
+    explicit Configuration(nlohmann::json json_data)
+        : m_json(std::move(json_data)) {
+        deserialize_all();
     }
 
     template<typename S>
@@ -153,85 +157,12 @@ public:
         return std::get<S>(m_sections);
     }
 
-    void set(std::string_view path, std::string value) {
-        auto [section_name, attr_key] = split_path(path);
-        auto& section_json = get_section_json(section_name);
-        section_json[attr_key] = value;
-    }
-
-    void set(std::string_view path, int value) {
-        auto [section_name, attr_key] = split_path(path);
-        auto& section_json = get_section_json(section_name);
-        section_json[attr_key] = value;
-    }
-
-    void set(std::string_view path, float value) {
-        auto [section_name, attr_key] = split_path(path);
-        auto& section_json = get_section_json(section_name);
-        section_json[attr_key] = value;
-    }
-
-    void set(std::string_view path, bool value) {
-        auto [section_name, attr_key] = split_path(path);
-        auto& section_json = get_section_json(section_name);
-        section_json[attr_key] = value;
-    }
-
-    void save() {
-        m_json.clear();
-        serialize_all();
-        write_json();
-    }
-
-    void save(std::string_view path) {
-        auto [section_name, attr_key] = split_path(path);
-        auto& section_json = get_section_json(section_name);
-        (void)section_json[attr_key]; // trigger existence check
-        write_json();
-    }
-
-    void save(std::string_view path, std::string value) {
-        set(path, value);
-        write_json();
-    }
-
-    void save(std::string_view path, int value) {
-        set(path, value);
-        write_json();
-    }
-
-    void save(std::string_view path, float value) {
-        set(path, value);
-        write_json();
-    }
-
-    void save(std::string_view path, bool value) {
-        set(path, value);
-        write_json();
-    }
-
 private:
     std::string m_config_path;
     nlohmann::json m_json;
     std::tuple<Sections...> m_sections;
 
-    static std::pair<std::string, std::string> split_path(std::string_view path) {
-        auto dot = path.find('.');
-        if (dot == std::string_view::npos) {
-            throw std::invalid_argument("Path must contain a section name and attribute key separated by '.', got: " + std::string(path));
-        }
-        return {std::string(path.substr(0, dot)), std::string(path.substr(dot + 1))};
-    }
-
-    nlohmann::json& get_section_json(std::string_view section_name) {
-        auto it = m_json.find(section_name);
-        if (it == m_json.end()) {
-            throw std::invalid_argument("Unknown section '" + std::string(section_name) + "' in path");
-        }
-        return *it;
-    }
-
-    void load() {
+    void load_from_file() {
         std::ifstream file(m_config_path);
         if (!file.is_open()) {
             throw std::runtime_error("Cannot open configuration file: " + m_config_path);
@@ -257,27 +188,6 @@ private:
     void deserialize_all() {
         int dummy[] = {0, (deserialize_section<Sections>(m_json, m_sections), 0)...};
         (void)dummy;
-    }
-
-    template<typename S>
-    void serialize_section(const std::tuple<Sections...>& sections, nlohmann::json& json) {
-        const auto& section_ref = std::get<S>(sections);
-        nlohmann::json section_json = nlohmann::json::object();
-        section_ref.to_json(section_json);
-        json[S::section_name()] = section_json;
-    }
-
-    void serialize_all() {
-        int dummy[] = {0, (serialize_section<Sections>(m_sections, m_json), 0)...};
-        (void)dummy;
-    }
-
-    void write_json() {
-        std::ofstream file(m_config_path);
-        if (!file.is_open()) {
-            throw std::runtime_error("Cannot write to configuration file: " + m_config_path);
-        }
-        file << m_json.dump(4);
     }
 };
 
@@ -311,11 +221,6 @@ struct Cache {
         self.path = j.value("path", "./cache.db");
         self.default_ttl_seconds = j.value("default_ttl_seconds", 300LL);
     }
-    void to_json(nlohmann::json& j) const {
-        j["enabled"] = enabled;
-        j["path"] = path;
-        j["default_ttl_seconds"] = default_ttl_seconds;
-    }
 };
 
 struct Server {
@@ -326,10 +231,6 @@ struct Server {
     static void from_json(Server& self, nlohmann::json const& j) {
         self.port = j.value("port", 8080);
         self.thread_pool_size = j.value("thread_pool_size", 10);
-    }
-    void to_json(nlohmann::json& j) const {
-        j["port"] = port;
-        j["thread_pool_size"] = thread_pool_size;
     }
 };
 
@@ -374,70 +275,21 @@ TEST_F(ConfigurationTest, LoadsSectionsFromJson) {
     EXPECT_EQ(server.thread_pool_size, 4);
 }
 
-TEST_F(ConfigurationTest, RoundTripSaveAndReload) {
+TEST_F(ConfigurationTest, LoadsFromMemoryJson) {
     nlohmann::json j;
-    j["cache"] = {{"enabled", true}, {"path", "./cache.db"}, {"default_ttl_seconds", 300}};
-    j["server"] = {{"port", 8080}, {"thread_pool_size", 10}};
-    write_json(j);
+    j["cache"] = {{"enabled", false}, {"path", "/tmp/test.db"}, {"default_ttl_seconds", 600}};
+    j["server"] = {{"port", 9090}, {"thread_pool_size", 4}};
 
-    Configuration<Cache, Server> config(config_path.string());
+    Configuration<Cache, Server> config(std::move(j));
 
-    // Save back
-    config.save();
+    auto& cache = config.get<Cache>();
+    EXPECT_FALSE(cache.enabled);
+    EXPECT_EQ(cache.path, "/tmp/test.db");
+    EXPECT_EQ(cache.default_ttl_seconds, 600);
 
-    // Reload and verify
-    Configuration<Cache, Server> config2(config_path.string());
-
-    auto& cache = config2.get<Cache>();
-    EXPECT_TRUE(cache.enabled);
-    EXPECT_EQ(cache.path, "./cache.db");
-    EXPECT_EQ(cache.default_ttl_seconds, 300);
-
-    auto& server = config2.get<Server>();
-    EXPECT_EQ(server.port, 8080);
-    EXPECT_EQ(server.thread_pool_size, 10);
-}
-
-TEST_F(ConfigurationTest, SetSingleAttribute) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", true}, {"path", "./cache.db"}, {"default_ttl_seconds", 300}};
-    j["server"] = {{"port", 8080}, {"thread_pool_size", 10}};
-    write_json(j);
-
-    Configuration<Cache, Server> config(config_path.string());
-
-    config.set("cache.enabled", false);
-    config.save("cache.enabled");
-
-    Configuration<Cache, Server> config2(config_path.string());
-    EXPECT_FALSE(config2.get<Cache>().enabled);
-    // Other values unchanged
-    EXPECT_EQ(config2.get<Cache>().path, "./cache.db");
-    EXPECT_EQ(config2.get<Server>().port, 8080);
-}
-
-TEST_F(ConfigurationTest, SaveSingleAttributeWithDifferentTypes) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", true}, {"path", "./cache.db"}, {"default_ttl_seconds", 300}};
-    j["server"] = {{"port", 8080}, {"thread_pool_size", 10}};
-    write_json(j);
-
-    Configuration<Cache, Server> config(config_path.string());
-
-    // Save int
-    config.save("server.port", 9090);
-    Configuration<Cache, Server> config2(config_path.string());
-    EXPECT_EQ(config2.get<Server>().port, 9090);
-
-    // Save bool
-    config2.save("cache.enabled", false);
-    Configuration<Cache, Server> config3(config_path.string());
-    EXPECT_FALSE(config3.get<Cache>().enabled);
-
-    // Save string
-    config3.save("cache.path", "/tmp/new.db");
-    Configuration<Cache, Server> config4(config_path.string());
-    EXPECT_EQ(config4.get<Cache>().path, "/tmp/new.db");
+    auto& server = config.get<Server>();
+    EXPECT_EQ(server.port, 9090);
+    EXPECT_EQ(server.thread_pool_size, 4);
 }
 
 TEST_F(ConfigurationTest, MissingSectionThrows) {
@@ -447,16 +299,6 @@ TEST_F(ConfigurationTest, MissingSectionThrows) {
     write_json(j);
 
     EXPECT_THROW(Configuration<Cache, Server>(config_path.string()), std::runtime_error);
-}
-
-TEST_F(ConfigurationTest, InvalidPathThrows) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", true}};
-    j["server"] = {{"port", 8080}};
-    write_json(j);
-
-    Configuration<Cache, Server> config(config_path.string());
-    EXPECT_THROW(config.set("unknown.key", 123), std::invalid_argument);
 }
 
 TEST_F(ConfigurationTest, MalformedJsonThrows) {
@@ -478,16 +320,16 @@ TEST_F(ConfigurationTest, MissingFileThrows) {
 Delete the old library placeholder files that are no longer part of the project:
 
 ```bash
-rm -f library.cpp library.h
-rm -rf src/ include/
+rm -f "/Volumes/Macintosh HD2/projects/utilities/configuration/library.cpp"
+rm -f "/Volumes/Macintosh HD2/projects/utilities/configuration/library.h"
+rm -rf "/Volumes/Macintosh HD2/projects/utilities/configuration/src/"
 ```
-
-Note: The `include/` directory being removed is the old one with `library.h`. The new `include/configuration.hpp` is created in Step 2.
 
 - [ ] **Step 5: Run CMake configuration**
 
 ```bash
-rm -rf cmake-build-debug && cmake -B cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
+rm -rf "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug"
+cmake -B "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
 ```
 
 Expected: CMake configures successfully, fetches nlohmann_json and GoogleTest dependencies.
@@ -495,7 +337,7 @@ Expected: CMake configures successfully, fetches nlohmann_json and GoogleTest de
 - [ ] **Step 6: Build the project**
 
 ```bash
-cmake --build cmake-build-debug
+cmake --build "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug"
 ```
 
 Expected: Builds `configuration_tests` executable with no errors.
@@ -503,26 +345,27 @@ Expected: Builds `configuration_tests` executable with no errors.
 - [ ] **Step 7: Run tests**
 
 ```bash
-cd cmake-build-debug && ctest --output-on-failure
+cd "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" && ctest --output-on-failure
 ```
 
-Expected: All 8 tests pass.
+Expected: All 5 tests pass.
 
 - [ ] **Step 8: Commit**
 
 ```bash
+cd "/Volumes/Macintosh HD2/projects/utilities/configuration"
 git add CMakeLists.txt include/configuration.hpp tests/configuration_test.cpp
 git rm -f library.cpp library.h 2>/dev/null || true
 git add -A
 git commit -m "feat: add typed configuration library with section traits"
 ```
 
-### Task 2: Update AGENTS.md and regenerate compile_commands.json
+### Task 2: Update docs and clean up
 
 **Files:**
 - Modify: `AGENTS.md` — update structure and gotchas for new library layout
 - Modify: `compile_commands.json` — regenerate from new CMake setup
-- Modify: `.gitignore` — ensure new files are tracked, old ones ignored
+- Remove: `samples/` directory
 
 - [ ] **Step 1: Update AGENTS.md**
 
@@ -565,9 +408,6 @@ cd cmake-build-debug && ctest --output-on-failure
 
 - `include/configuration.hpp` — header-only Configuration class template
 - `tests/configuration_test.cpp` — unit tests (synthetic JSON, temp files)
-- `samples/1/` — cppreference config example (uses nlohmann/json, not part of library)
-- `samples/2/` — email backup config example (uses nlohmann/json, not part of library)
-- `samples/CMakeLists.txt` — standalone build for samples (thread_pool project, legacy)
 
 ## Clang-tidy
 
@@ -576,27 +416,29 @@ cd cmake-build-debug && ctest --output-on-failure
 ## Gotchas
 
 - `compile_commands.json` is gitignored — copy from `cmake-build-debug/compile_commands.json` after regenerating CMake.
-- `samples/CMakeLists.txt` is a copy of the thread_pool project's CMakeLists.txt, not the samples themselves. Samples 1 and 2 are standalone config implementations using nlohmann/json.
 - The library is header-only — no `src/` directory needed.
-- Section structs must define `section_name()`, `from_json()`, and `to_json()` — the Configuration class uses these to deserialize/serialize each section.
+- Section structs must define `section_name()` and `from_json()` — the Configuration class uses these to deserialize each section.
+- The library is read-only — no persistence methods.
 ```
 
 - [ ] **Step 2: Regenerate compile_commands.json**
 
 ```bash
-rm -rf cmake-build-debug && cmake -B cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
-cp cmake-build-debug/compile_commands.json .
+rm -rf "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug"
+cmake -B "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
+cp "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug/compile_commands.json" "/Volumes/Macintosh HD2/projects/utilities/configuration/compile_commands.json"
 ```
 
-- [ ] **Step 3: Remove samples directory** (as per user request: "Samples will be deleted afterwards")
+- [ ] **Step 3: Remove samples directory**
 
 ```bash
-rm -rf samples/
+rm -rf "/Volumes/Macintosh HD2/projects/utilities/configuration/samples/"
 ```
 
 - [ ] **Step 4: Commit**
 
 ```bash
+cd "/Volumes/Macintosh HD2/projects/utilities/configuration"
 git add AGENTS.md compile_commands.json
 git rm -rf samples/
 git commit -m "chore: update docs, regenerate compile_commands, remove samples"
@@ -607,7 +449,7 @@ git commit -m "chore: update docs, regenerate compile_commands, remove samples"
 - [ ] **Step 1: Run full test suite**
 
 ```bash
-cd cmake-build-debug && ctest --output-on-failure -V
+cd "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" && ctest --output-on-failure -V
 ```
 
 Expected: All tests pass with verbose output.
@@ -615,25 +457,18 @@ Expected: All tests pass with verbose output.
 - [ ] **Step 2: Verify clean build from scratch**
 
 ```bash
-rm -rf cmake-build-debug out/
-cmake -B cmake-build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
-cmake --build cmake-build-debug
-cd cmake-build-debug && ctest --output-on-failure
+rm -rf "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" "/Volumes/Macintosh HD2/projects/utilities/configuration/out/"
+cmake -B "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
+cmake --build "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug"
+cd "/Volumes/Macintosh HD2/projects/utilities/configuration/cmake-build-debug" && ctest --output-on-failure
 ```
 
 Expected: Full build and all tests pass from clean state.
 
-- [ ] **Step 3: Verify clang-tidy runs on header**
+- [ ] **Step 3: Final commit**
 
 ```bash
-clang-tidy include/configuration.hpp -- -std=c++23 -I$(pwd)/cmake-build-debug/_deps/nlohmann_json-src/include -quiet
-```
-
-Expected: No warnings (or only minor style warnings not blocked by `.clang-tidy` HeaderFilterRegex which targets `src/` — header is outside scope).
-
-- [ ] **Step 4: Final commit**
-
-```bash
+cd "/Volumes/Macintosh HD2/projects/utilities/configuration"
 git add -A
-git commit -m "verify: clean build, tests pass, clang-tidy clean"
+git commit -m "verify: clean build, tests pass"
 ```
