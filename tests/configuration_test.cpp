@@ -14,8 +14,7 @@ struct Cache : configuration::Section {
 
     static constexpr std::string_view section_name() { return "cache"; }
 
-    void load(nlohmann::json const& json) {
-        m_json = &json;
+    void populate() override {
         enabled = read("enabled", true);
         path = read("path", std::string("./cache.db"));
         default_ttl_seconds = read("default_ttl_seconds", 300LL);
@@ -28,8 +27,7 @@ struct Server : configuration::Section {
 
     static constexpr std::string_view section_name() { return "server"; }
 
-    void load(nlohmann::json const& json) {
-        m_json = &json;
+    void populate() override {
         port = read("port", 8080);
         thread_pool_size = read("thread_pool_size", 10);
     }

@@ -10,6 +10,8 @@
 namespace configuration {
 
 class Section {
+public:
+    void set_json(nlohmann::json const* json) { m_json = json; }
 protected:
     mutable nlohmann::json const* m_json = nullptr;
 
@@ -20,6 +22,9 @@ protected:
         }
         return default_value;
     }
+
+    virtual void populate() = 0;
+    virtual ~Section() = default;
 };
 
 template<typename... Sections>
@@ -55,9 +60,10 @@ private:
         for_each_section([this](auto& section, std::string_view name) {
             auto it = m_json.find(name);
             if (it == m_json.end()) {
-                throw std::runtime_error("Missing required section '" + std::string(name) + "' in configuration.json");
+                throw std::runtime_error("Missing required section '" + std::string(name) + "' in config.json");
             }
-            section.load(m_json[name]);
+            section.set_json(&m_json[name]);
+            section.populate();
         });
         m_loaded = true;
     }
