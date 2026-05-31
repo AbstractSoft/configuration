@@ -15,9 +15,10 @@ struct Cache : configuration::Section {
     static constexpr std::string_view section_name() { return "cache"; }
 
     void load(nlohmann::json const& json) {
-        enabled = read(json, "enabled", true);
-        path = read(json, "path", "./cache.db");
-        default_ttl_seconds = read(json, "default_ttl_seconds", 300LL);
+        m_json = &json;
+        enabled = read("enabled", true);
+        path = read("path", std::string("./cache.db"));
+        default_ttl_seconds = read("default_ttl_seconds", 300LL);
     }
 };
 
@@ -28,8 +29,9 @@ struct Server : configuration::Section {
     static constexpr std::string_view section_name() { return "server"; }
 
     void load(nlohmann::json const& json) {
-        port = read(json, "port", 8080);
-        thread_pool_size = read(json, "thread_pool_size", 10);
+        m_json = &json;
+        port = read("port", 8080);
+        thread_pool_size = read("thread_pool_size", 10);
     }
 };
 

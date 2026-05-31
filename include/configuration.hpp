@@ -6,21 +6,17 @@
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <type_traits>
 
 namespace configuration {
 
 class Section {
 protected:
+    mutable nlohmann::json const* m_json = nullptr;
+
     template<typename T>
-    static T read(nlohmann::json const& json, std::string_view key, T default_value) {
-        auto it = json.find(key);
-        if (it != json.end()) {
-            if constexpr (std::is_same_v<T, char const*>) {
-                return it->get_ref<std::string const&>().c_str();
-            } else {
-                return it->get<T>();
-            }
+    T read(std::string_view key, T default_value) const {
+        if (m_json && m_json->contains(key)) {
+            return m_json->value(key, default_value);
         }
         return default_value;
     }
@@ -61,17 +57,17 @@ private:
     }
 
     template<typename S>
-    void deserialize_section(nlohmann::json const& json) const {
+    void deserialize_section() const {
         auto& section_ref = std::get<S>(m_sections);
-        auto it = json.find(S::section_name());
-        if (it == json.end()) {
+        auto it = m_json.find(S::section_name());
+        if (it == m_json.end()) {
             throw std::runtime_error("Missing required section '" + std::string(S::section_name()) + "' in configuration.json");
         }
-        section_ref.load(*it);
+        section_ref.load(m_json[S::section_name()]);
     }
 
     void deserialize_all() const {
-        int dummy[] = {0, (deserialize_section<Sections>(m_json), 0)...};
+        int dummy[] = {0, (deserialize_section<Sections>(), 0)...};
         (void)dummy;
     }
 };
