@@ -1,33 +1,35 @@
 #include <gtest/gtest.h>
-#include "configuration.hpp"
-#include <filesystem>
-#include <fstream>
 #include <nlohmann/json.hpp>
+#include <fstream>
+#include <filesystem>
+#include "configuration.hpp"
 
 namespace fs = std::filesystem;
 
-// Test section structs
-struct Cache {
+// Test section structs inheriting from Section base class
+struct Cache : configuration::Section {
     bool enabled = true;
     std::string path = "./cache.db";
     int64_t default_ttl_seconds = 300;
 
     static constexpr std::string_view section_name() { return "cache"; }
-    static void from_json(Cache& self, nlohmann::json const& j) {
-        self.enabled = j.value("enabled", true);
-        self.path = j.value("path", "./cache.db");
-        self.default_ttl_seconds = j.value("default_ttl_seconds", 300LL);
+
+    void load(nlohmann::json const& json) {
+        enabled = read(json, "enabled", true);
+        path = read(json, "path", "./cache.db");
+        default_ttl_seconds = read(json, "default_ttl_seconds", 300LL);
     }
 };
 
-struct Server {
+struct Server : configuration::Section {
     int port = 8080;
     int thread_pool_size = 10;
 
     static constexpr std::string_view section_name() { return "server"; }
-    static void from_json(Server& self, nlohmann::json const& j) {
-        self.port = j.value("port", 8080);
-        self.thread_pool_size = j.value("thread_pool_size", 10);
+
+    void load(nlohmann::json const& json) {
+        port = read(json, "port", 8080);
+        thread_pool_size = read(json, "thread_pool_size", 10);
     }
 };
 
@@ -72,29 +74,13 @@ TEST_F(ConfigurationTest, LoadsSectionsFromJson) {
     EXPECT_EQ(server.thread_pool_size, 4);
 }
 
-TEST_F(ConfigurationTest, LoadsFromMemoryJson) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", false}, {"path", "/tmp/test.db"}, {"default_ttl_seconds", 600}};
-    j["server"] = {{"port", 9090}, {"thread_pool_size", 4}};
-
-    auto config = configuration::Configuration<Cache, Server>::from_json(std::move(j));
-
-    auto& cache = config.get<Cache>();
-    EXPECT_FALSE(cache.enabled);
-    EXPECT_EQ(cache.path, "/tmp/test.db");
-    EXPECT_EQ(cache.default_ttl_seconds, 600);
-
-    auto& server = config.get<Server>();
-    EXPECT_EQ(server.port, 9090);
-    EXPECT_EQ(server.thread_pool_size, 4);
-}
-
 TEST_F(ConfigurationTest, MissingSectionThrows) {
     nlohmann::json j;
     j["cache"] = {{"enabled", true}};
     write_json(j);
 
-    EXPECT_THROW((configuration::Configuration<Cache, Server>(config_path.string())), std::runtime_error);
+    configuration::Configuration<Cache, Server> config(config_path.string());
+    EXPECT_THROW(config.get<Server>(), std::runtime_error);
 }
 
 TEST_F(ConfigurationTest, MalformedJsonThrows) {
@@ -102,10 +88,32 @@ TEST_F(ConfigurationTest, MalformedJsonThrows) {
     file << "{ invalid json }";
     file.close();
 
-    EXPECT_THROW((configuration::Configuration<Cache>(config_path.string())), std::runtime_error);
+    configuration::Configuration<Cache> config(config_path.string());
+    EXPECT_THROW(config.get<Cache>(), std::runtime_error);
 }
 
 TEST_F(ConfigurationTest, MissingFileThrows) {
     fs::path nonexistent = test_dir / "nonexistent.json";
-    EXPECT_THROW((configuration::Configuration<Cache>(nonexistent.string())), std::runtime_error);
+    configuration::Configuration<Cache> config(nonexistent.string());
+    EXPECT_THROW(config.get<Cache>(), std::runtime_error);
+}
+
+TEST_F(ConfigurationTest, LazyLoad) {
+    nlohmann::json j;
+    j["cache"] = {{"enabled", false}, {"path", "/tmp/test.db"}, {"default_ttl_seconds", 600}};
+    j["server"] = {{"port", 9090}, {"thread_pool_size", 4}};
+    write_json(j);
+
+    configuration::Configuration<Cache, Server> config(config_path.string());
+
+    // First access triggers loading of all sections
+    auto& cache = config.get<Cache>();
+    EXPECT_FALSE(cache.enabled);
+    EXPECT_EQ(cache.path, "/tmp/test.db");
+    EXPECT_EQ(cache.default_ttl_seconds, 600);
+
+    // Subsequent section access returns already-loaded values
+    auto& server = config.get<Server>();
+    EXPECT_EQ(server.port, 9090);
+    EXPECT_EQ(server.thread_pool_size, 4);
 }

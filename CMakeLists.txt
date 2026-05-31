@@ -92,6 +92,14 @@ if(BUILD_TESTS)
         tests/configuration_test.cpp
     )
 
+    set(GOOGLETEST_INCLUDE_DIR "${googletest_SOURCE_DIR}/googletest/include" "${googletest_SOURCE_DIR}/googlemock/include")
+    set(NLOHMANN_JSON_INCLUDE_DIR "${nlohmann_json_SOURCE_DIR}/include")
+
+    target_include_directories(configuration_tests PRIVATE
+        ${GOOGLETEST_INCLUDE_DIR}
+        ${NLOHMANN_JSON_INCLUDE_DIR}
+    )
+
     target_link_libraries(configuration_tests PRIVATE
         ${PROJECT_NAME}
         GTest::gtest_main
