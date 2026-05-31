@@ -52,16 +52,25 @@ private:
         } catch (const nlohmann::json::parse_error& e) {
             throw std::runtime_error("JSON parse error in '" + m_config_path + "': " + e.what());
         }
-        int dummy[] = {0, ([this](){
-            auto& section_ref = std::get<Sections>(m_sections);
-            auto it = m_json.find(Sections::section_name());
+        for_each_section([this](auto& section, std::string_view name) {
+            auto it = m_json.find(name);
             if (it == m_json.end()) {
-                throw std::runtime_error("Missing required section '" + std::string(Sections::section_name()) + "' in configuration.json");
+                throw std::runtime_error("Missing required section '" + std::string(name) + "' in configuration.json");
             }
-            section_ref.load(m_json[Sections::section_name()]);
-        }(), 0)...};
-        (void)dummy;
+            section.load(m_json[name]);
+        });
         m_loaded = true;
+    }
+
+    template<typename Callable, size_t... Is>
+    void for_each_section(Callable&& fn, std::index_sequence<Is...>) const {
+        int dummy[] = {0, (fn(std::get<Is>(m_sections), std::string_view(Sections::section_name())), 0)...};
+        (void)dummy;
+    }
+
+    template<typename Callable>
+    void for_each_section(Callable&& fn) const {
+        for_each_section(std::forward<Callable>(fn), std::index_sequence_for<Sections...>{});
     }
 };
 
