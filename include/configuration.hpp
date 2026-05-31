@@ -1,8 +1,8 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
-#include <nlohmann/json.hpp>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -52,23 +52,16 @@ private:
         } catch (const nlohmann::json::parse_error& e) {
             throw std::runtime_error("JSON parse error in '" + m_config_path + "': " + e.what());
         }
-        deserialize_all();
-        m_loaded = true;
-    }
-
-    template<typename S>
-    void deserialize_section() const {
-        auto& section_ref = std::get<S>(m_sections);
-        auto it = m_json.find(S::section_name());
-        if (it == m_json.end()) {
-            throw std::runtime_error("Missing required section '" + std::string(S::section_name()) + "' in configuration.json");
-        }
-        section_ref.load(m_json[S::section_name()]);
-    }
-
-    void deserialize_all() const {
-        int dummy[] = {0, (deserialize_section<Sections>(), 0)...};
+        int dummy[] = {0, ([this](){
+            auto& section_ref = std::get<Sections>(m_sections);
+            auto it = m_json.find(Sections::section_name());
+            if (it == m_json.end()) {
+                throw std::runtime_error("Missing required section '" + std::string(Sections::section_name()) + "' in configuration.json");
+            }
+            section_ref.load(m_json[Sections::section_name()]);
+        }(), 0)...};
         (void)dummy;
+        m_loaded = true;
     }
 };
 
