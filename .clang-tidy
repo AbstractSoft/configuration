@@ -8,7 +8,7 @@ Checks: >
 
 CheckOptions:
   - key: readability-identifier-length.MinimumIdentifierLength
-    value: 3
+    value: 2
 
 HeaderFilterRegex: 'src/.*'
 ExcludeHeaderFilterRegex: '(_deps/|_builds/|/usr/|/Library/)'
