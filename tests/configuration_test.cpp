@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
-#include <fstream>
-#include <filesystem>
 #include "configuration.hpp"
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
 
@@ -33,13 +33,13 @@ struct Server {
 
 class ConfigurationTest : public ::testing::Test {
 protected:
-    void SetUp() override {
+    void SetUp() {
         test_dir = fs::temp_directory_path() / "config_test_XXXXXX";
         fs::create_directories(test_dir);
         config_path = test_dir / "configuration.json";
     }
 
-    void TearDown() override {
+    void TearDown() {
         if (fs::exists(test_dir)) {
             fs::remove_all(test_dir);
         }
