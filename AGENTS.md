@@ -32,7 +32,7 @@ cd cmake-build-debug && ctest --output-on-failure
 
 ## Structure
 
-- `include/configuration.hpp` — header-only Configuration class template
+- `include/configuration.hpp` — header-only Configuration class template + Section base class
 - `tests/configuration_test.cpp` — unit tests (synthetic JSON, temp files)
 
 ## Clang-tidy
@@ -43,5 +43,5 @@ cd cmake-build-debug && ctest --output-on-failure
 
 - `compile_commands.json` is gitignored — copy from `cmake-build-debug/compile_commands.json` after regenerating CMake.
 - The library is header-only — no `src/` directory needed.
-- Section structs must define `section_name()` and `from_json()` — the Configuration class uses these to deserialize each section.
+- Section structs must inherit from `Section`, define `section_name()` and `load(json)` — the Configuration class uses these to deserialize each section.
 - The library is read-only — no persistence methods.
