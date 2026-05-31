@@ -9,6 +9,8 @@
 
 namespace configuration {
 
+inline constexpr char const* DEFAULT_CONFIG_PATH = "./config.json";
+
 class Section {
 public:
     void set_json(nlohmann::json const* json) { m_json = json; }
@@ -30,7 +32,7 @@ protected:
 template<typename... Sections>
 class Configuration {
 public:
-    explicit Configuration(std::string_view config_path = "./config.json")
+    explicit Configuration(std::string_view config_path = DEFAULT_CONFIG_PATH)
         : m_config_path(config_path) {}
 
     template<typename S>
@@ -60,7 +62,7 @@ private:
         for_each_section([this](auto& section, std::string_view name) {
             auto it = m_json.find(name);
             if (it == m_json.end()) {
-                throw std::runtime_error("Missing required section '" + std::string(name) + "' in config.json");
+                throw std::runtime_error("Missing required section '" + std::string(name) + "' in " + m_config_path);
             }
             section.set_json(&m_json[name]);
             section.populate();
