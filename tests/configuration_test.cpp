@@ -6,20 +6,18 @@
 
 namespace fs = std::filesystem;
 
-// Test section structs inheriting from Section base class
 struct Cache : configuration::Section {
     bool enabled;
     std::string path;
     int64_t default_ttl_seconds;
 
-    void populate() override {
+    static constexpr std::string_view section_name() { return "cache"; }
+
+    Cache(nlohmann::json const& json) : Section("cache") {
+        m_json = &json;
         enabled = read("enabled", true);
         path = read("path", std::string("./cache.db"));
         default_ttl_seconds = read("default_ttl_seconds", 300LL);
-    }
-
-    Cache() : Section("cache") {
-        populate();
     }
 };
 
@@ -27,13 +25,12 @@ struct Server : configuration::Section {
     int port;
     int thread_pool_size;
 
-    void populate() override {
+    static constexpr std::string_view section_name() { return "server"; }
+
+    Server(nlohmann::json const& json) : Section("server") {
+        m_json = &json;
         port = read("port", 8080);
         thread_pool_size = read("thread_pool_size", 10);
-    }
-
-    Server() : Section("server") {
-        populate();
     }
 };
 
@@ -83,8 +80,7 @@ TEST_F(ConfigurationTest, MissingSectionThrows) {
     j["cache"] = {{"enabled", true}};
     write_json(j);
 
-    configuration::Configuration<Cache, Server> config(config_path.string());
-    EXPECT_THROW(config.get<Server>(), std::runtime_error);
+    EXPECT_THROW((configuration::Configuration<Cache, Server>(config_path.string())), std::runtime_error);
 }
 
 TEST_F(ConfigurationTest, MalformedJsonThrows) {
@@ -92,32 +88,10 @@ TEST_F(ConfigurationTest, MalformedJsonThrows) {
     file << "{ invalid json }";
     file.close();
 
-    configuration::Configuration<Cache> config(config_path.string());
-    EXPECT_THROW(config.get<Cache>(), std::runtime_error);
+    EXPECT_THROW((configuration::Configuration<Cache>(config_path.string())), std::runtime_error);
 }
 
 TEST_F(ConfigurationTest, MissingFileThrows) {
     fs::path nonexistent = test_dir / "nonexistent.json";
-    configuration::Configuration<Cache> config(nonexistent.string());
-    EXPECT_THROW(config.get<Cache>(), std::runtime_error);
-}
-
-TEST_F(ConfigurationTest, LazyLoad) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", false}, {"path", "/tmp/test.db"}, {"default_ttl_seconds", 600}};
-    j["server"] = {{"port", 9090}, {"thread_pool_size", 4}};
-    write_json(j);
-
-    configuration::Configuration<Cache, Server> config(config_path.string());
-
-    // First access triggers loading of all sections
-    auto& cache = config.get<Cache>();
-    EXPECT_FALSE(cache.enabled);
-    EXPECT_EQ(cache.path, "/tmp/test.db");
-    EXPECT_EQ(cache.default_ttl_seconds, 600);
-
-    // Subsequent section access returns already-loaded values
-    auto& server = config.get<Server>();
-    EXPECT_EQ(server.port, 9090);
-    EXPECT_EQ(server.thread_pool_size, 4);
+    EXPECT_THROW((configuration::Configuration<Cache>(nonexistent.string())), std::runtime_error);
 }
