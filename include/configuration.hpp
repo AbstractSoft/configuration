@@ -1,37 +1,17 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
-#include <fstream>
 #include <nlohmann/json.hpp>
+#include <any>
+#include <map>
 #include <string>
 #include <string_view>
-#include <tuple>
+#include <typeindex>
 
 namespace configuration {
 
 inline constexpr char const* DEFAULT_CONFIG_PATH = "./config.json";
 
-template <typename Derived>
-class Section {
-public:
-    void initialize(nlohmann::json const& json) {
-        m_json = &json;
-        static_cast<Derived*>(this)->load();
-    }
-
-protected:
-    nlohmann::json const* m_json = nullptr;
-
-    template <typename T>
-    [[nodiscard]] T read(std::string_view key, T default_value) const {
-        if (m_json && m_json->contains(key)) {
-            return m_json->value(key, default_value);
-        }
-        return default_value;
-    }
-};
-
-template <typename... Sections>
 class Configuration {
 public:
     explicit Configuration(std::string_view config_path = DEFAULT_CONFIG_PATH)
@@ -39,44 +19,49 @@ public:
         load();
     }
 
-    template <typename S>
-    [[nodiscard]] S get() const {
-        return std::get<S>(m_sections);
+    template <typename SectionT>
+    SectionT get() const {
+        auto key = std::type_index{typeid(SectionT)};
+        auto it = m_sections.find(key);
+        if (it != m_sections.end()) {
+            return *std::any_cast<SectionT>(&it->second);
+        }
+
+        SectionT section;
+        auto json_it = m_json.find(SectionT::section_name());
+        if (json_it != m_json.end()) {
+            for_each_field(*json_it, section);
+        }
+        m_sections.emplace(key, std::move(section));
+        return *std::any_cast<SectionT>(&m_sections.at(key));
     }
 
 private:
-    std::string m_config_path;
-    nlohmann::json m_json;
-    std::tuple<Sections...> m_sections;
-
     void load() {
         std::ifstream file(m_config_path);
         if (!file.is_open()) {
-            throw std::runtime_error("Cannot open configuration file: " + m_config_path);
+            throw std::runtime_error("Cannot open configuration file: " + std::string(m_config_path));
         }
         try {
             m_json = nlohmann::json::parse(file);
         } catch (nlohmann::json::parse_error const& e) {
-            throw std::runtime_error(
-                "JSON parse error in '" + m_config_path + "': " + e.what());
+            throw std::runtime_error("JSON parse error in '" + m_config_path + "': " + e.what());
         }
-        construct_sections();
     }
 
-    template <typename S>
-    void construct_section() {
-        auto it = m_json.find(S::section_name());
-        if (it == m_json.end()) {
-            throw std::runtime_error(
-                "Missing required section '" + std::string(S::section_name()) +
-                "' in " + m_config_path);
-        }
-        std::get<S>(m_sections).initialize(*it);
+    template <typename SectionT>
+    static void for_each_field(nlohmann::json const& json, SectionT& section) {
+        SectionT::for_each_field(section, [&json](auto& field, std::string_view key) {
+            using FieldT = std::remove_reference_t<decltype(field)>;
+            if (json.contains(key)) {
+                field = json[key].get<FieldT>();
+            }
+        });
     }
 
-    void construct_sections() {
-        (construct_section<Sections>(), ...);
-    }
+    std::string m_config_path;
+    nlohmann::json m_json;
+    mutable std::map<std::type_index, std::any> m_sections;
 };
 
 } // namespace configuration
