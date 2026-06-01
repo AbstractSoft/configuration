@@ -55,6 +55,7 @@ add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} INTERFACE
         include/configuration.hpp
+        include/field_reflection.hpp
 )
 
 target_include_directories(${PROJECT_NAME}

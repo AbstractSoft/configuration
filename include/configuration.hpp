@@ -17,47 +17,60 @@ public:
         load();
     }
 
+    // Returns the value at `key` (dot-separated for nesting), or `default_value`
+    // if the key is absent. Throws std::runtime_error if the key exists but
+    // cannot be converted to T.
     template <typename T>
     T get(std::string_view key, T default_value = {}) const {
-        nlohmann::json const* json = find_key(key);
-        if (json) {
-            try {
-                return json->get<T>();
-            } catch (...) {
-                return default_value;
-            }
+        nlohmann::json const* node = find_key(key);
+        if (!node) {
+            return default_value;
         }
-        return default_value;
+        try {
+            return node->get<T>();
+        } catch (nlohmann::json::exception const& e) {
+            throw std::runtime_error(
+                "Configuration: cannot convert key '" + std::string(key) +
+                "' to the requested type: " + e.what());
+        }
     }
 
+    // Returns true if the key exists (leaf or intermediate node).
     bool has(std::string_view key) const {
         return find_key(key) != nullptr;
     }
 
 private:
+    // Traverses dot-separated key segments. Returns nullptr if any segment
+    // is missing or if a non-object node is encountered mid-path.
+    // An empty key returns nullptr.
     nlohmann::json const* find_key(std::string_view key) const {
+        if (key.empty()) {
+            return nullptr;
+        }
+
         nlohmann::json const* current = &m_json;
         std::size_t pos = 0;
 
         while (pos < key.size()) {
-            auto dot = key.find('.', pos);
-            auto part = key.substr(pos, dot == std::string_view::npos ? key.size() - pos : dot - pos);
+            auto dot  = key.find('.', pos);
+            auto part = (dot == std::string_view::npos)
+                            ? key.substr(pos)
+                            : key.substr(pos, dot - pos);
 
             if (!current->is_object()) {
                 return nullptr;
             }
 
+            // nlohmann::find does not accept string_view directly;
+            // the string construction here is intentional.
             auto it = current->find(std::string(part));
             if (it == current->end()) {
                 return nullptr;
             }
 
             current = &*it;
-
-            if (dot == std::string_view::npos) {
-                break;
-            }
-            pos = dot + 1;
+            pos     = (dot == std::string_view::npos) ? key.size() : dot + 1;
         }
 
         return current;
@@ -71,11 +84,12 @@ private:
         try {
             m_json = nlohmann::json::parse(file);
         } catch (nlohmann::json::parse_error const& e) {
-            throw std::runtime_error("JSON parse error in '" + m_config_path + "': " + e.what());
+            throw std::runtime_error(
+                "JSON parse error in '" + m_config_path + "': " + e.what());
         }
     }
 
-    std::string m_config_path;
+    std::string    m_config_path;
     nlohmann::json m_json;
 };
 
