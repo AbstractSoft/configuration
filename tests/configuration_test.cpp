@@ -108,6 +108,30 @@ TEST_F(ConfigurationTest, MalformedJsonThrows) {
     EXPECT_THROW(configuration::Configuration config(config_path.string()), std::runtime_error);
 }
 
+TEST_F(ConfigurationTest, GetArray) {
+    nlohmann::json j;
+    j["accounts"] = {
+        {{"name", "gmail.com"}, {"imap_server", "imap.gmail.com"}, {"port", 993}, {"username", "user@gmail.com"}, {"password", "pass"}, {"save_folder", "gmail"}},
+        {{"name", "smarterasp.com"}, {"imap_server", "mail.professional-programmer.com"}, {"port", 143}, {"username", "user@prof.com"}, {"password", "pass"}, {"save_folder", "smarterasp"}}
+    };
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+
+    nlohmann::json accounts = config.get<nlohmann::json>("accounts");
+    EXPECT_EQ(accounts.size(), 2u);
+
+    auto const& acct1 = accounts[0];
+    EXPECT_EQ(acct1["name"], "gmail.com");
+    EXPECT_EQ(acct1["port"], 993);
+    EXPECT_EQ(acct1["imap_server"], "imap.gmail.com");
+    EXPECT_EQ(acct1["username"], "user@gmail.com");
+
+    auto const& acct2 = accounts[1];
+    EXPECT_EQ(acct2["name"], "smarterasp.com");
+    EXPECT_EQ(acct2["port"], 143);
+}
+
 TEST_F(ConfigurationTest, MissingFileThrows) {
     fs::path nonexistent = test_dir / "nonexistent.json";
     EXPECT_THROW(configuration::Configuration config(nonexistent.string()), std::runtime_error);
