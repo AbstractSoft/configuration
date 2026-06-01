@@ -6,34 +6,6 @@
 
 namespace fs = std::filesystem;
 
-struct Cache {
-    bool enabled = true;
-    std::string path = "./cache.db";
-    int64_t default_ttl_seconds = 300;
-
-    static constexpr std::string_view section_name() { return "cache"; }
-
-    template <typename Fn>
-    static void for_each_field(Cache& self, Fn&& fn) {
-        fn(self.enabled, "enabled");
-        fn(self.path, "path");
-        fn(self.default_ttl_seconds, "default_ttl_seconds");
-    }
-};
-
-struct Server {
-    int port = 8080;
-    int thread_pool_size = 10;
-
-    static constexpr std::string_view section_name() { return "server"; }
-
-    template <typename Fn>
-    static void for_each_field(Server& self, Fn&& fn) {
-        fn(self.port, "port");
-        fn(self.thread_pool_size, "thread_pool_size");
-    }
-};
-
 class ConfigurationTest : public ::testing::Test {
 protected:
     void SetUp() {
@@ -57,53 +29,75 @@ protected:
     }
 };
 
-TEST_F(ConfigurationTest, LoadsSectionsFromJson) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", false}, {"path", "/tmp/test.db"}, {"default_ttl_seconds", 600}};
-    j["server"] = {{"port", 9090}, {"thread_pool_size", 4}};
+TEST_F(ConfigurationTest, GetPrimitiveTypes) {
+    nlohmann::json j = {
+        {"enabled", false},
+        {"port", 8080},
+        {"timeout", 3.14},
+        {"path", "/tmp/test.db"},
+        {"count", 42}
+    };
     write_json(j);
 
     configuration::Configuration config(config_path.string());
 
-    Cache cache = config.get<Cache>();
-    EXPECT_FALSE(cache.enabled);
-    EXPECT_EQ(cache.path, "/tmp/test.db");
-    EXPECT_EQ(cache.default_ttl_seconds, 600);
+    bool enabled = config.get<bool>("enabled");
+    int port = config.get<int>("port");
+    double timeout = config.get<double>("timeout");
+    std::string path = config.get<std::string>("path");
+    int count = config.get<int>("count");
 
-    Server server = config.get<Server>();
-    EXPECT_EQ(server.port, 9090);
-    EXPECT_EQ(server.thread_pool_size, 4);
+    EXPECT_FALSE(enabled);
+    EXPECT_EQ(port, 8080);
+    EXPECT_DOUBLE_EQ(timeout, 3.14);
+    EXPECT_EQ(path, "/tmp/test.db");
+    EXPECT_EQ(count, 42);
 }
 
-TEST_F(ConfigurationTest, ReturnsCachedSections) {
-    nlohmann::json j;
-    j["cache"] = {{"enabled", false}, {"path", "/tmp/test.db"}, {"default_ttl_seconds", 600}};
+TEST_F(ConfigurationTest, GetWithDefault) {
+    nlohmann::json j = {{"enabled", true}};
     write_json(j);
 
     configuration::Configuration config(config_path.string());
 
-    Cache cache1 = config.get<Cache>();
-    Cache cache2 = config.get<Cache>();
-    EXPECT_EQ(cache1.enabled, cache2.enabled);
-    EXPECT_EQ(cache1.path, cache2.path);
-    EXPECT_EQ(cache1.default_ttl_seconds, cache2.default_ttl_seconds);
+    bool enabled = config.get<bool>("enabled", false);
+    bool missing = config.get<bool>("missing", true);
+    int port = config.get<int>("port", 9090);
+    std::string path = config.get<std::string>("path", "./default.db");
+
+    EXPECT_TRUE(enabled);
+    EXPECT_TRUE(missing);
+    EXPECT_EQ(port, 9090);
+    EXPECT_EQ(path, "./default.db");
 }
 
-TEST_F(ConfigurationTest, MissingSectionReturnsDefaults) {
+TEST_F(ConfigurationTest, GetNestedKeys) {
     nlohmann::json j;
-    j["server"] = {{"port", 9090}};
+    j["cache"]["enabled"] = false;
+    j["cache"]["ttl"] = 300;
+    j["server"]["port"] = 9090;
     write_json(j);
 
     configuration::Configuration config(config_path.string());
 
-    Cache cache = config.get<Cache>();
-    EXPECT_TRUE(cache.enabled);
-    EXPECT_EQ(cache.path, "./cache.db");
-    EXPECT_EQ(cache.default_ttl_seconds, 300LL);
+    bool cache_enabled = config.get<bool>("cache.enabled", true);
+    int cache_ttl = config.get<int>("cache.ttl", 60);
+    int server_port = config.get<int>("server.port", 8080);
 
-    Server server = config.get<Server>();
-    EXPECT_EQ(server.port, 9090);
-    EXPECT_EQ(server.thread_pool_size, 10);
+    EXPECT_FALSE(cache_enabled);
+    EXPECT_EQ(cache_ttl, 300);
+    EXPECT_EQ(server_port, 9090);
+}
+
+TEST_F(ConfigurationTest, HasMethod) {
+    nlohmann::json j = {{"enabled", true}};
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+
+    EXPECT_TRUE(config.has("enabled"));
+    EXPECT_FALSE(config.has("missing"));
+    EXPECT_FALSE(config.has("cache.enabled"));
 }
 
 TEST_F(ConfigurationTest, MalformedJsonThrows) {
