@@ -6,29 +6,27 @@
 
 namespace fs = std::filesystem;
 
-struct Cache : configuration::Section {
-    bool enabled;
-    std::string path;
-    int64_t default_ttl_seconds;
+struct Cache : configuration::Section<Cache> {
+    bool enabled = true;
+    std::string path = "./cache.db";
+    int64_t default_ttl_seconds = 300;
 
     static constexpr std::string_view section_name() { return "cache"; }
 
-    Cache(nlohmann::json const& json) : Section("cache") {
-        m_json = &json;
+    void load() {
         enabled = read("enabled", true);
         path = read("path", std::string("./cache.db"));
         default_ttl_seconds = read("default_ttl_seconds", 300LL);
     }
 };
 
-struct Server : configuration::Section {
-    int port;
-    int thread_pool_size;
+struct Server : configuration::Section<Server> {
+    int port = 8080;
+    int thread_pool_size = 10;
 
     static constexpr std::string_view section_name() { return "server"; }
 
-    Server(nlohmann::json const& json) : Section("server") {
-        m_json = &json;
+    void load() {
         port = read("port", 8080);
         thread_pool_size = read("thread_pool_size", 10);
     }
