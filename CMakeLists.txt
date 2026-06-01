@@ -64,8 +64,6 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(${PROJECT_NAME} INTERFACE nlohmann_json::nlohmann_json)
-
 # ── Tests ──────────────────────────────────────────────────────────────────
 
 option(BUILD_TESTS "Build unit tests" OFF)
@@ -89,6 +87,12 @@ if(BUILD_TESTS)
     )
     FetchContent_MakeAvailable(nlohmann_json)
 
+    add_library(${PROJECT_NAME}::nlohmann_json INTERFACE IMPORTED)
+    set_target_properties(${PROJECT_NAME}::nlohmann_json PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${nlohmann_json_SOURCE_DIR}/include"
+    )
+    target_link_libraries(${PROJECT_NAME} INTERFACE ${PROJECT_NAME}::nlohmann_json)
+
     add_executable(configuration_tests
         tests/configuration_test.cpp
     )
@@ -96,11 +100,6 @@ if(BUILD_TESTS)
     target_include_directories(configuration_tests PRIVATE
         ${googletest_SOURCE_DIR}/googletest/include
         ${googletest_SOURCE_DIR}/googlemock/include
-        ${nlohmann_json_SOURCE_DIR}/include
-    )
-
-    # Make FetchContent headers visible to CLion's indexer for the whole project
-    target_include_directories(${PROJECT_NAME} INTERFACE
         ${nlohmann_json_SOURCE_DIR}/include
     )
 
