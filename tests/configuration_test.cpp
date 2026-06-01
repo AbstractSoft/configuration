@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <sstream>
-#include <thread>
 #include <vector>
 
 namespace fs = std::filesystem;

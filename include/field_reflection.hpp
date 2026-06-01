@@ -8,6 +8,8 @@
 #include <type_traits>
 
 // Describes one field: its JSON key and a pointer-to-member.
+// name must point to a string with static storage duration (e.g., a string literal).
+// Passing a temporary std::string will cause a dangling std::string_view.
 template <typename T, typename MemberT>
 struct Field
 {
