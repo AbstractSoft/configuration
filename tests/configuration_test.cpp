@@ -1,10 +1,10 @@
-#include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
-#include <filesystem>
-#include <fstream>
-#include <vector>
 #include "configuration.hpp"
 #include "field_reflection.hpp"
+#include <gtest/gtest.h>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <vector>
 
 namespace fs = std::filesystem;
 
