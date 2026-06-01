@@ -2,9 +2,34 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
+#include <vector>
 #include "configuration.hpp"
 
 namespace fs = std::filesystem;
+
+struct Cache {
+    bool enabled = true;
+    std::string path = "./cache.db";
+    int64_t default_ttl_seconds = 300;
+};
+
+struct Server {
+    std::string host = "127.0.0.1";
+    int port = 8080;
+};
+
+struct Account {
+    std::string name;
+    std::string imap_server;
+    int port;
+    std::string username;
+    std::string password;
+    std::string save_folder;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Cache, enabled, path, default_ttl_seconds)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Server, host, port)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Account, name, imap_server, port, username, password, save_folder)
 
 class ConfigurationTest : public ::testing::Test {
 protected:
@@ -108,28 +133,100 @@ TEST_F(ConfigurationTest, MalformedJsonThrows) {
     EXPECT_THROW(configuration::Configuration config(config_path.string()), std::runtime_error);
 }
 
-TEST_F(ConfigurationTest, GetArray) {
+TEST_F(ConfigurationTest, GetTypedObject) {
     nlohmann::json j;
-    j["accounts"] = {
-        {{"name", "gmail.com"}, {"imap_server", "imap.gmail.com"}, {"port", 993}, {"username", "user@gmail.com"}, {"password", "pass"}, {"save_folder", "gmail"}},
-        {{"name", "smarterasp.com"}, {"imap_server", "mail.professional-programmer.com"}, {"port", 143}, {"username", "user@prof.com"}, {"password", "pass"}, {"save_folder", "smarterasp"}}
+    j["cache"] = {
+        {"enabled", false},
+        {"path", "/tmp/cache.db"},
+        {"default_ttl_seconds", 600}
     };
     write_json(j);
 
     configuration::Configuration config(config_path.string());
 
-    nlohmann::json accounts = config.get<nlohmann::json>("accounts");
-    EXPECT_EQ(accounts.size(), 2u);
+    Cache cache = config.get<Cache>("cache");
 
-    auto const& acct1 = accounts[0];
-    EXPECT_EQ(acct1["name"], "gmail.com");
-    EXPECT_EQ(acct1["port"], 993);
-    EXPECT_EQ(acct1["imap_server"], "imap.gmail.com");
-    EXPECT_EQ(acct1["username"], "user@gmail.com");
+    EXPECT_FALSE(cache.enabled);
+    EXPECT_EQ(cache.path, "/tmp/cache.db");
+    EXPECT_EQ(cache.default_ttl_seconds, 600);
+}
 
-    auto const& acct2 = accounts[1];
-    EXPECT_EQ(acct2["name"], "smarterasp.com");
-    EXPECT_EQ(acct2["port"], 143);
+TEST_F(ConfigurationTest, GetTypedObjectWithDefaults) {
+    nlohmann::json j;
+    j["cache"] = {{"enabled", true}};
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+
+    Cache cache = config.get<Cache>("cache");
+
+    EXPECT_TRUE(cache.enabled);
+    EXPECT_EQ(cache.path, "./cache.db");
+    EXPECT_EQ(cache.default_ttl_seconds, 300);
+}
+
+TEST_F(ConfigurationTest, GetTypedArray) {
+    nlohmann::json j;
+    j["accounts"] = {
+        {
+            {"name", "gmail.com"},
+            {"imap_server", "imap.gmail.com"},
+            {"port", 993},
+            {"username", "professional.programmer.com@gmail.com"},
+            {"password", "app_password_1"},
+            {"save_folder", "gmail_professional"}
+        },
+        {
+            {"name", "gmail.com"},
+            {"imap_server", "imap.gmail.com"},
+            {"port", 993},
+            {"username", "another@gmail.com"},
+            {"password", "app_password_2"},
+            {"save_folder", "gmail_personal"}
+        }
+    };
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+
+    std::vector<Account> accounts = config.get<std::vector<Account>>("accounts");
+
+    ASSERT_EQ(accounts.size(), 2u);
+    EXPECT_EQ(accounts[0].username, "professional.programmer.com@gmail.com");
+    EXPECT_EQ(accounts[0].save_folder, "gmail_professional");
+    EXPECT_EQ(accounts[0].port, 993);
+    EXPECT_EQ(accounts[1].username, "another@gmail.com");
+    EXPECT_EQ(accounts[1].save_folder, "gmail_personal");
+}
+
+TEST_F(ConfigurationTest, GetTypedObjectWithDefault) {
+    nlohmann::json j;
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+
+    Cache cache = config.get<Cache>("missing", Cache{});
+
+    EXPECT_TRUE(cache.enabled);
+    EXPECT_EQ(cache.path, "./cache.db");
+    EXPECT_EQ(cache.default_ttl_seconds, 300);
+}
+
+TEST_F(ConfigurationTest, GetDeepNestedKeys) {
+    nlohmann::json j;
+    j["a"]["b"]["c"]["d"] = 42;
+    j["a"]["b"]["c"]["e"] = "deep";
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+
+    int value = config.get<int>("a.b.c.d", 0);
+    std::string str = config.get<std::string>("a.b.c.e", "default");
+    int missing = config.get<int>("a.b.c.missing", -1);
+
+    EXPECT_EQ(value, 42);
+    EXPECT_EQ(str, "deep");
+    EXPECT_EQ(missing, -1);
 }
 
 TEST_F(ConfigurationTest, MissingFileThrows) {

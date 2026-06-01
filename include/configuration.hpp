@@ -36,24 +36,31 @@ public:
 
 private:
     nlohmann::json const* find_key(std::string_view key) const {
-        auto it = m_json.find(key);
-        if (it != m_json.end()) {
-            return &*it;
+        nlohmann::json const* current = &m_json;
+        std::size_t pos = 0;
+
+        while (pos < key.size()) {
+            auto dot = key.find('.', pos);
+            auto part = key.substr(pos, dot == std::string_view::npos ? key.size() - pos : dot - pos);
+
+            if (!current->is_object()) {
+                return nullptr;
+            }
+
+            auto it = current->find(std::string(part));
+            if (it == current->end()) {
+                return nullptr;
+            }
+
+            current = &*it;
+
+            if (dot == std::string_view::npos) {
+                break;
+            }
+            pos = dot + 1;
         }
 
-        auto dot = key.find('.');
-        if (dot != std::string_view::npos) {
-            std::string_view section = key.substr(0, dot);
-            std::string_view attr = key.substr(dot + 1);
-            auto section_it = m_json.find(section);
-            if (section_it != m_json.end()) {
-                auto attr_it = section_it->find(attr);
-                if (attr_it != section_it->end()) {
-                    return &*attr_it;
-                }
-            }
-        }
-        return nullptr;
+        return current;
     }
 
     void load() {
