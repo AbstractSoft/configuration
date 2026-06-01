@@ -32,16 +32,17 @@ cd cmake-build-debug && ctest --output-on-failure
 
 ## Structure
 
-- `include/configuration.hpp` — header-only Configuration class template + Section base class
+- `include/configuration.hpp` — Configuration class (flat key-value lookup with dot notation)
+- `include/field_reflection.hpp` — Reflectable base class + Field descriptor for typed objects
 - `tests/configuration_test.cpp` — unit tests (synthetic JSON, temp files)
 
 ## Clang-tidy
 
-`.clang-tidy` applies only to `src/` files. Checks: cppcoreguidelines-init-variables, llvm-include-order, readability-braces-around-statements, readability-identifier-length (min 3 chars). Default checks are cleared — only listed rules apply.
+`.clang-tidy` applies only to `src/` files. Checks: cppcoreguidelines-init-variables, llvm-include-order, readability-braces-around-statements, readability-identifier-length (min 2 chars). Default checks are cleared — only listed rules apply.
 
 ## Gotchas
 
 - `compile_commands.json` is gitignored — copy from `cmake-build-debug/compile_commands.json` after regenerating CMake.
 - The library is header-only — no `src/` directory needed.
-- Section structs must inherit from `Section`, define `section_name()` and `load(json)` — the Configuration class uses these to deserialize each section.
+- Typed structs must inherit `Reflectable<T>` and define `static constexpr auto fields()` returning a tuple of `Field{...}` descriptors.
 - The library is read-only — no persistence methods.

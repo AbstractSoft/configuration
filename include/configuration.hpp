@@ -1,15 +1,14 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
-#include "field_reflection.hpp"
-#include <nlohmann/json.hpp>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
 
 namespace configuration
 {
-    inline constexpr char const* DEFAULT_CONFIG_PATH = "./config.json";
+    inline constexpr auto DEFAULT_CONFIG_PATH = "./config.json";
 
     class Configuration
     {
@@ -27,7 +26,7 @@ namespace configuration
         // For struct types: T must either inherit Reflectable<T> or be supported
         // by nlohmann directly (e.g. via NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE).
         template <typename T>
-        T get(std::string_view key, T default_value = {}) const
+        T get(const std::string_view key, T default_value = {}) const
         {
             nlohmann::json const* node = find_key(key);
             if (!node)
@@ -47,16 +46,16 @@ namespace configuration
         }
 
         // Returns true if the key exists (leaf or intermediate node).
-        bool has(std::string_view key) const
+        [[nodiscard]] bool has(std::string_view key) const
         {
             return find_key(key) != nullptr;
         }
 
     private:
         // Traverses dot-separated key segments. Returns nullptr if any segment
-        // is missing or if a non-object node is encountered mid-path.
+        // is missing, or if a non-object node is encountered mid-path.
         // An empty key returns nullptr.
-        nlohmann::json const* find_key(std::string_view key) const
+        [[nodiscard]] nlohmann::json const* find_key(const std::string_view key) const
         {
             if (key.empty())
             {
@@ -79,7 +78,7 @@ namespace configuration
                 }
 
                 // nlohmann::find does not accept string_view directly;
-                // the string construction here is intentional.
+                // The string construction here is intentional.
                 auto it = current->find(std::string(part));
                 if (it == current->end())
                 {

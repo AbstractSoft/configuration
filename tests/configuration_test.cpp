@@ -18,7 +18,7 @@ struct Cache : Reflectable<Cache>
     std::string path = "./cache.db";
     int64_t default_ttl_seconds = 300;
 
-    static constexpr auto fields()
+    [[maybe_unused]] static constexpr auto fields()
     {
         return std::tuple{
             Field{"enabled", &Cache::enabled},
@@ -33,7 +33,7 @@ struct Server : Reflectable<Server>
     std::string host = "127.0.0.1";
     int port = 8080;
 
-    static constexpr auto fields()
+    [[maybe_unused]] static constexpr auto fields()
     {
         return std::tuple{
             Field{"host", &Server::host},
@@ -51,7 +51,7 @@ struct Account : Reflectable<Account>
     std::string password;
     std::string save_folder;
 
-    static constexpr auto fields()
+    [[maybe_unused]] static constexpr auto fields()
     {
         return std::tuple{
             Field{"name", &Account::name},
@@ -88,7 +88,7 @@ protected:
         }
     }
 
-    void write_json(nlohmann::json const& j)
+    void write_json(nlohmann::json const& j) const
     {
         std::ofstream file(config_path);
         file << j.dump(4);
@@ -192,7 +192,7 @@ TEST_F(ConfigurationTest, GetTypedObject)
     write_json(j);
 
     configuration::Configuration config(config_path.string());
-    Cache cache = config.get<Cache>("cache");
+    const auto cache = config.get<Cache>("cache");
 
     EXPECT_FALSE(cache.enabled);
     EXPECT_EQ(cache.path, "/tmp/cache.db");
@@ -208,7 +208,7 @@ TEST_F(ConfigurationTest, GetTypedObjectPartialJson)
     write_json(j);
 
     configuration::Configuration config(config_path.string());
-    Cache cache = config.get<Cache>("cache");
+    const auto cache = config.get<Cache>("cache");
 
     EXPECT_FALSE(cache.enabled);
     EXPECT_EQ(cache.path, "./cache.db"); // C++ default preserved
@@ -220,7 +220,7 @@ TEST_F(ConfigurationTest, GetTypedObjectWithDefault)
     write_json(nlohmann::json::object());
 
     configuration::Configuration config(config_path.string());
-    Cache cache = config.get<Cache>("missing", Cache{});
+    const auto cache = config.get<Cache>("missing", Cache{});
 
     EXPECT_TRUE(cache.enabled);
     EXPECT_EQ(cache.path, "./cache.db");
