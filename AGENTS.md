@@ -1,6 +1,6 @@
 # configuration — AGENTS.md
 
-JSON-based C++ configuration library. C++23, CMake, CLion workflow.
+Header-only C++23 configuration library with compile-time reflection. CMake, CLion workflow.
 
 ## Build
 
@@ -45,4 +45,5 @@ cd cmake-build-debug && ctest --output-on-failure
 - `compile_commands.json` is gitignored — copy from `cmake-build-debug/compile_commands.json` after regenerating CMake.
 - The library is header-only — no `src/` directory needed.
 - Typed structs must inherit `Reflectable<T>` and define `static constexpr auto fields()` returning a tuple of `Field{...}` descriptors.
+- Field names must be string literals (static storage duration) — passing a temporary `std::string` will cause a dangling `std::string_view`.
 - The library is read-only — no persistence methods.
