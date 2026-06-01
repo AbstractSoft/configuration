@@ -256,6 +256,14 @@ TEST_F(ConfigurationTest, TryGetReturnsNulloptForMissingKey)
     EXPECT_EQ(config.try_get<std::string>("path").value(), "/tmp/test");
 }
 
+TEST_F(ConfigurationTest, TryGetThrowsOnConversionError)
+{
+    write_json({{"port", "not_a_number"}});
+
+    configuration::Configuration config(config_path.string());
+    EXPECT_THROW((void)config.try_get<int>("port"), std::runtime_error);
+}
+
 TEST_F(ConfigurationTest, GetNestedReflectableTypes)
 {
     nlohmann::json j;
