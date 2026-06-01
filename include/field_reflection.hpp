@@ -2,6 +2,7 @@
 #define FIELD_REFLECTION_HPP
 
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -65,7 +66,15 @@ struct Reflectable
             {
                 if (j.contains(field.name))
                 {
-                    j.at(std::string(field.name)).get_to(obj.*field.ptr);
+                    try
+                    {
+                        j.at(std::string(field.name)).get_to(obj.*field.ptr);
+                    }
+                    catch (nlohmann::json::exception const& e)
+                    {
+                        throw std::runtime_error(std::string("Field '") +
+                            std::string(field.name) + "': " + e.what());
+                    }
                 }
                 // absent keys keep their C++ default value
             }(), ...);

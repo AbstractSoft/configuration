@@ -1,9 +1,12 @@
 #include "configuration.hpp"
 #include "field_reflection.hpp"
-#include <gtest/gtest.h>
+#include <atomic>
 #include <filesystem>
 #include <fstream>
+#include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <sstream>
+#include <thread>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -64,6 +67,20 @@ struct Account : Reflectable<Account>
     }
 };
 
+struct Application : Reflectable<Application>
+{
+    Server server;
+    Cache cache;
+
+    [[maybe_unused]] static constexpr auto fields()
+    {
+        return std::tuple{
+            Field{"server", &Application::server},
+            Field{"cache", &Application::cache}
+        };
+    }
+};
+
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
@@ -73,8 +90,8 @@ class ConfigurationTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        auto unique = std::to_string(::getpid()) + "_" +
-            std::to_string(reinterpret_cast<uintptr_t>(this));
+        static std::atomic<int> counter{0};
+        auto unique = std::to_string(counter.fetch_add(1));
         test_dir = fs::temp_directory_path() / ("config_test_" + unique);
         fs::create_directories(test_dir);
         config_path = test_dir / "configuration.json";
@@ -225,6 +242,37 @@ TEST_F(ConfigurationTest, GetTypedObjectWithDefault)
     EXPECT_TRUE(cache.enabled);
     EXPECT_EQ(cache.path, "./cache.db");
     EXPECT_EQ(cache.default_ttl_seconds, 300);
+}
+
+TEST_F(ConfigurationTest, TryGetReturnsNulloptForMissingKey)
+{
+    write_json({{"port", 8080}, {"path", "/tmp/test"}});
+
+    configuration::Configuration config(config_path.string());
+
+    EXPECT_FALSE(config.try_get<int>("missing"));
+    EXPECT_EQ(config.try_get<int>("port").value(), 8080);
+    EXPECT_FALSE(config.try_get<std::string>("nonexistent"));
+    EXPECT_EQ(config.try_get<std::string>("path").value(), "/tmp/test");
+}
+
+TEST_F(ConfigurationTest, GetNestedReflectableTypes)
+{
+    nlohmann::json j;
+    j["app"]["server"]["host"] = "0.0.0.0";
+    j["app"]["server"]["port"] = 3000;
+    j["app"]["cache"]["enabled"] = false;
+    j["app"]["cache"]["path"] = "/var/cache/app";
+    write_json(j);
+
+    configuration::Configuration config(config_path.string());
+    const auto app = config.get<Application>("app");
+
+    EXPECT_EQ(app.server.host, "0.0.0.0");
+    EXPECT_EQ(app.server.port, 3000);
+    EXPECT_FALSE(app.cache.enabled);
+    EXPECT_EQ(app.cache.path, "/var/cache/app");
+    EXPECT_EQ(app.cache.default_ttl_seconds, 300); // C++ default preserved
 }
 
 TEST_F(ConfigurationTest, GetTypedArray)

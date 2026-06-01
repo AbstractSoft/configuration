@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -26,12 +27,34 @@ namespace configuration
         // For struct types: T must either inherit Reflectable<T> or be supported
         // by nlohmann directly (e.g. via NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE).
         template <typename T>
-        T get(const std::string_view key, T default_value = {}) const
+        [[nodiscard]] T get(const std::string_view key, T default_value = {}) const
         {
             nlohmann::json const* node = find_key(key);
             if (!node)
             {
                 return default_value;
+            }
+            try
+            {
+                return node->get<T>();
+            }
+            catch (nlohmann::json::exception const& e)
+            {
+                throw std::runtime_error(
+                    "Configuration: cannot convert key '" + std::string(key) +
+                    "' to the requested type: " + e.what());
+            }
+        }
+
+        // Returns the value at `key` as std::optional<T>, or std::nullopt if absent.
+        // Throws std::runtime_error if the key exists but cannot be converted to T.
+        template <typename T>
+        [[nodiscard]] auto try_get(std::string_view key) const -> std::optional<T>
+        {
+            nlohmann::json const* node = find_key(key);
+            if (!node)
+            {
+                return std::nullopt;
             }
             try
             {
