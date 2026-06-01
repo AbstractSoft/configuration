@@ -13,7 +13,11 @@ inline constexpr char const* DEFAULT_CONFIG_PATH = "./config.json";
 
 class Section {
 public:
+    explicit Section(std::string_view name) : m_name(name) {}
+
     void set_json(nlohmann::json const* json) { m_json = json; }
+    std::string_view get_name() const { return m_name; }
+
 protected:
     mutable nlohmann::json const* m_json = nullptr;
 
@@ -27,6 +31,9 @@ protected:
 
     virtual void populate() = 0;
     virtual ~Section() = default;
+
+private:
+    std::string m_name;
 };
 
 template<typename... Sections>
@@ -59,12 +66,12 @@ private:
         } catch (const nlohmann::json::parse_error& e) {
             throw std::runtime_error("JSON parse error in '" + m_config_path + "': " + e.what());
         }
-        for_each_section([this](auto& section, std::string_view name) {
-            auto it = m_json.find(name);
+        for_each_section([this](auto& section) {
+            auto it = m_json.find(section.get_name());
             if (it == m_json.end()) {
-                throw std::runtime_error("Missing required section '" + std::string(name) + "' in " + m_config_path);
+                throw std::runtime_error("Missing required section '" + std::string(section.get_name()) + "' in " + m_config_path);
             }
-            section.set_json(&m_json[name]);
+            section.set_json(&m_json[section.get_name()]);
             section.populate();
         });
         m_loaded = true;
@@ -72,7 +79,7 @@ private:
 
     template<typename Callable, size_t... Is>
     void for_each_section(Callable&& fn, std::index_sequence<Is...>) const {
-        int dummy[] = {0, (fn(std::get<Is>(m_sections), std::string_view(Sections::section_name())), 0)...};
+        int dummy[] = {0, (fn(std::get<Is>(m_sections)), 0)...};
         (void)dummy;
     }
 
