@@ -93,12 +93,15 @@ if(BUILD_TESTS)
         tests/configuration_test.cpp
     )
 
-    get_target_property(GOOGLETEST_INCLUDE_DIR GTest::gtest INTERFACE_INCLUDE_DIRECTORIES)
-    get_target_property(NLOHMANN_JSON_INCLUDE_DIR nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
-
     target_include_directories(configuration_tests PRIVATE
-        ${GOOGLETEST_INCLUDE_DIR}
-        ${NLOHMANN_JSON_INCLUDE_DIR}
+        ${googletest_SOURCE_DIR}/googletest/include
+        ${googletest_SOURCE_DIR}/googlemock/include
+        ${nlohmann_json_SOURCE_DIR}/include
+    )
+
+    # Make FetchContent headers visible to CLion's indexer for the whole project
+    target_include_directories(${PROJECT_NAME} INTERFACE
+        ${nlohmann_json_SOURCE_DIR}/include
     )
 
     target_link_libraries(configuration_tests PRIVATE
