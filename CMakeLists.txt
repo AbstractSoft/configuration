@@ -93,8 +93,8 @@ if(BUILD_TESTS)
         tests/configuration_test.cpp
     )
 
-    set(GOOGLETEST_INCLUDE_DIR "${googletest_SOURCE_DIR}/googletest/include" "${googletest_SOURCE_DIR}/googlemock/include")
-    set(NLOHMANN_JSON_INCLUDE_DIR "${nlohmann_json_SOURCE_DIR}/include")
+    get_target_property(GOOGLETEST_INCLUDE_DIR GTest::gtest INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(NLOHMANN_JSON_INCLUDE_DIR nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
 
     target_include_directories(configuration_tests PRIVATE
         ${GOOGLETEST_INCLUDE_DIR}
