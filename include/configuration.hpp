@@ -40,7 +40,7 @@ public:
     }
 
     template <typename S>
-    [[nodiscard]] S const& get() const {
+    [[nodiscard]] S get() const {
         return std::get<S>(m_sections);
     }
 

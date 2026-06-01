@@ -63,12 +63,12 @@ TEST_F(ConfigurationTest, LoadsSectionsFromJson) {
 
     configuration::Configuration<Cache, Server> config(config_path.string());
 
-    auto& cache = config.get<Cache>();
+    Cache cache = config.get<Cache>();
     EXPECT_FALSE(cache.enabled);
     EXPECT_EQ(cache.path, "/tmp/test.db");
     EXPECT_EQ(cache.default_ttl_seconds, 600);
 
-    auto& server = config.get<Server>();
+    Server server = config.get<Server>();
     EXPECT_EQ(server.port, 9090);
     EXPECT_EQ(server.thread_pool_size, 4);
 }
