@@ -31,12 +31,12 @@ namespace configuration
     {
     public:
         explicit Configuration(std::string_view config_path = DEFAULT_CONFIG_PATH)
-            : m_config_path(config_path)
+            : m_config_path{config_path}
         {
             load();
         }
 
-        // Returns the value at `key` (dot-separated for nesting), or `default_value`
+        // Returns the value at `key` (dot-separated for nesting), or `default_value.`
         // if the key is absent. Throws std::runtime_error if the key exists but
         // cannot be converted to T.
         //
@@ -56,9 +56,10 @@ namespace configuration
             }
             catch (nlohmann::json::exception const& e)
             {
-                throw std::runtime_error(
+                throw std::runtime_error{
                     "Configuration: cannot convert key '" + std::string(key) +
-                    "' to the requested type: " + e.what());
+                    "' to the requested type: " + e.what()
+                };
             }
         }
 
@@ -78,9 +79,10 @@ namespace configuration
             }
             catch (nlohmann::json::exception const& e)
             {
-                throw std::runtime_error(
+                throw std::runtime_error{
                     "Configuration: cannot convert key '" + std::string(key) +
-                    "' to the requested type: " + e.what());
+                    "' to the requested type: " + e.what()
+                };
             }
         }
 
@@ -133,10 +135,10 @@ namespace configuration
 
         void load()
         {
-            std::ifstream file(m_config_path);
+            std::ifstream file{m_config_path};
             if (!file.is_open())
             {
-                throw std::runtime_error("Cannot open configuration file: " + m_config_path);
+                throw std::runtime_error{"Cannot open configuration file: " + m_config_path};
             }
             try
             {
@@ -144,8 +146,9 @@ namespace configuration
             }
             catch (nlohmann::json::parse_error const& e)
             {
-                throw std::runtime_error(
-                    "JSON parse error in '" + m_config_path + "': " + e.what());
+                throw std::runtime_error{
+                    "JSON parse error in '" + m_config_path + "': " + e.what()
+                };
             }
         }
 

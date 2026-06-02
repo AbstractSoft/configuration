@@ -122,7 +122,7 @@ protected:
 
     void write_json(nlohmann::json const& j) const
     {
-        std::ofstream file(config_path);
+        std::ofstream file{config_path};
         file << j.dump(4);
     }
 
@@ -141,7 +141,7 @@ TEST_F(ConfigurationTest, GetPrimitiveTypes)
         {"path", "/tmp/test.db"}, {"count", 42}
     });
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_FALSE(config.get<bool>("enabled"));
     EXPECT_EQ(config.get<int>("port"), 8080);
@@ -154,7 +154,7 @@ TEST_F(ConfigurationTest, GetWithDefault)
 {
     write_json({{"enabled", true}});
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_TRUE(config.get<bool>("enabled", false));
     EXPECT_TRUE(config.get<bool>("missing", true));
@@ -170,7 +170,7 @@ TEST_F(ConfigurationTest, GetNestedKeys)
     j["server"]["port"] = 9090;
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_FALSE(config.get<bool>("cache.enabled", true));
     EXPECT_EQ(config.get<int>("cache.ttl", 60), 300);
@@ -184,7 +184,7 @@ TEST_F(ConfigurationTest, GetDeepNestedKeys)
     j["a"]["b"]["c"]["e"] = "deep";
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_EQ(config.get<int>("a.b.c.d", 0), 42);
     EXPECT_EQ(config.get<std::string>("a.b.c.e", "default"), "deep");
@@ -198,7 +198,7 @@ TEST_F(ConfigurationTest, HasMethod)
     j["cache"]["enabled"] = false;
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_TRUE(config.has("enabled"));
     EXPECT_TRUE(config.has("cache")); // intermediate node
@@ -212,7 +212,7 @@ TEST_F(ConfigurationTest, WrongTypeThrows)
 {
     write_json({{"port", "not_a_number"}});
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_THROW(config.get<int>("port"), std::runtime_error);
 }
@@ -223,7 +223,7 @@ TEST_F(ConfigurationTest, GetTypedObject)
     j["cache"] = {{"enabled", false}, {"path", "/tmp/cache.db"}, {"default_ttl_seconds", 600}};
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
     const auto cache = config.get<Cache>("cache");
 
     EXPECT_FALSE(cache.enabled);
@@ -239,7 +239,7 @@ TEST_F(ConfigurationTest, GetTypedObjectPartialJson)
     j["cache"] = {{"enabled", false}}; // path and default_ttl_seconds absent
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
     const auto cache = config.get<Cache>("cache");
 
     EXPECT_FALSE(cache.enabled);
@@ -251,7 +251,7 @@ TEST_F(ConfigurationTest, GetTypedObjectWithDefault)
 {
     write_json(nlohmann::json::object());
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
     const auto cache = config.get<Cache>("missing", Cache{});
 
     EXPECT_TRUE(cache.enabled);
@@ -263,7 +263,7 @@ TEST_F(ConfigurationTest, TryGetReturnsNulloptForMissingKey)
 {
     write_json({{"port", 8080}, {"path", "/tmp/test"}});
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
 
     EXPECT_FALSE(config.try_get<int>("missing"));
     EXPECT_EQ(config.try_get<int>("port").value(), 8080);
@@ -275,7 +275,7 @@ TEST_F(ConfigurationTest, TryGetThrowsOnConversionError)
 {
     write_json({{"port", "not_a_number"}});
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
     EXPECT_THROW((void)config.try_get<int>("port"), std::runtime_error);
 }
 
@@ -288,7 +288,7 @@ TEST_F(ConfigurationTest, GetNestedReflectableTypes)
     j["app"]["cache"]["path"] = "/var/cache/app";
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
     const auto app = config.get<Application>("app");
 
     EXPECT_EQ(app.server.host, "0.0.0.0");
@@ -313,7 +313,7 @@ TEST_F(ConfigurationTest, GetTypedArray)
     };
     write_json(j);
 
-    configuration::Configuration config(config_path.string());
+    configuration::Configuration config{config_path.string()};
     auto accounts = config.get<std::vector<Account>>("accounts");
 
     ASSERT_EQ(accounts.size(), 2u);
@@ -326,13 +326,13 @@ TEST_F(ConfigurationTest, GetTypedArray)
 
 TEST_F(ConfigurationTest, MalformedJsonThrows)
 {
-    std::ofstream(config_path) << "{ invalid json }";
-    EXPECT_THROW(configuration::Configuration(config_path.string()), std::runtime_error);
+    std::ofstream{config_path} << "{ invalid json }";
+    EXPECT_THROW(configuration::Configuration{config_path.string()}, std::runtime_error);
 }
 
 TEST_F(ConfigurationTest, MissingFileThrows)
 {
     EXPECT_THROW(
-        configuration::Configuration((test_dir / "nonexistent.json").string()),
+        configuration::Configuration{(test_dir / "nonexistent.json").string()},
         std::runtime_error);
 }

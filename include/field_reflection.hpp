@@ -90,8 +90,10 @@ struct Reflectable
                     }
                     catch (nlohmann::json::exception const& e)
                     {
-                        throw std::runtime_error(std::string("Field '") +
-                            std::string(field.name) + "': " + e.what());
+                        throw std::runtime_error{
+                            std::string{"Field '"} +
+                            std::string{field.name} + "': " + e.what()
+                        };
                     }
                 }
                 // absent keys keep their C++ default value
