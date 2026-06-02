@@ -215,7 +215,7 @@ TEST_F(ConfigurationTest, WrongTypeThrows)
 
     configuration::Configuration config{config_path.string()};
 
-    EXPECT_THROW(config.get<int>("port"), std::runtime_error);
+    EXPECT_THROW((void)config.get<int>("port"), std::runtime_error);
 }
 
 TEST_F(ConfigurationTest, GetTypedObject)

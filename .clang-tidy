@@ -18,7 +18,7 @@ CheckOptions:
   - key: readability-identifier-length.MinimumBindingNameLength
     value: 2
 
-HeaderFilterRegex: 'src/.*'
+HeaderFilterRegex: 'include/.*'
 ExcludeHeaderFilterRegex: '(_deps/|_builds/|/usr/|/Library/)'
 FormatStyle: none
 ...
