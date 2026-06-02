@@ -1,6 +1,6 @@
 /*
-* Simple thread pool library
- * Copyright (C) 2026 Eduard Ghergu, PhD <eduard.ghergu@professional-programmer.com>
+ * Configuration library
+  * Copyright (C) 2026 Eduard Ghergu, PhD <eduard.ghergu@professional-programmer.com>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -78,15 +78,19 @@ struct Reflectable
 {
     friend void from_json(nlohmann::json const& j, Derived& obj)
     {
+        static_assert(HasFields<Derived>,
+            "Derived must define static constexpr auto fields() returning a tuple of Field descriptors");
+
         std::apply([&](auto const&... field)
         {
             ([&]
             {
-                if (j.contains(field.name))
+                auto it = j.find(std::string{field.name});
+                if (it != j.end())
                 {
                     try
                     {
-                        j.at(std::string(field.name)).get_to(obj.*field.ptr);
+                        it->get_to(obj.*field.ptr);
                     }
                     catch (nlohmann::json::exception const& e)
                     {
