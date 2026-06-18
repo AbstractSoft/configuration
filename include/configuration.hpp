@@ -32,7 +32,7 @@ namespace configuration
     {
     public:
         explicit Configuration(std::string_view config_path = DEFAULT_CONFIG_PATH)
-            : m_config_path{config_path}
+            : config_path_{config_path}
         {
             load();
         }
@@ -88,7 +88,7 @@ namespace configuration
         }
 
         // Returns true if the key exists (leaf or intermediate node).
-        [[nodiscard]] bool has(std::string_view key) const
+        [[nodiscard]] bool has(const std::string_view key) const
         {
             return find_key(key) != nullptr;
         }
@@ -104,7 +104,7 @@ namespace configuration
                 return nullptr;
             }
 
-            nlohmann::json const* current = &m_json;
+            nlohmann::json const* current = &json_;
             std::size_t pos = 0;
 
             while (pos < key.size())
@@ -136,25 +136,25 @@ namespace configuration
 
         void load()
         {
-            std::ifstream file{m_config_path};
+            std::ifstream file{config_path_};
             if (!file.is_open())
             {
-                throw std::runtime_error{"Cannot open configuration file: " + m_config_path};
+                throw std::runtime_error{"Cannot open configuration file: " + config_path_};
             }
             try
             {
-                m_json = nlohmann::json::parse(file);
+                json_ = nlohmann::json::parse(file);
             }
             catch (nlohmann::json::parse_error const& e)
             {
                 throw std::runtime_error{
-                    "JSON parse error in '" + m_config_path + "': " + e.what()
+                    "JSON parse error in '" + config_path_ + "': " + e.what()
                 };
             }
         }
 
-        std::string m_config_path;
-        nlohmann::json m_json;
+        std::string config_path_;
+        nlohmann::json json_;
     };
 } // namespace configuration
 
