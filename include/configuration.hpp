@@ -31,7 +31,7 @@ namespace configuration
     class Configuration
     {
     public:
-        explicit Configuration(std::string_view config_path = DEFAULT_CONFIG_PATH)
+        explicit Configuration(const std::string_view config_path = DEFAULT_CONFIG_PATH)
             : config_path_{config_path}
         {
             load();
@@ -67,7 +67,7 @@ namespace configuration
         // Returns the value at `key` as std::optional<T>, or std::nullopt if absent.
         // Throws std::runtime_error if the key exists but cannot be converted to T.
         template <typename T>
-        [[nodiscard]] auto try_get(std::string_view key) const -> std::optional<T>
+        [[nodiscard]] auto try_get(const std::string_view key) const -> std::optional<T>
         {
             nlohmann::json const* node = find_key(key);
             if (!node)
