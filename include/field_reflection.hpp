@@ -27,16 +27,16 @@
 // Describes one field: its JSON key and a pointer-to-member.
 // name must point to a string with static storage duration (e.g., a string literal).
 // Passing a temporary std::string will cause a dangling std::string_view.
-template <typename T, typename MemberT>
+template <typename T, typename member_t>
 struct Field
 {
     std::string_view name;
-    MemberT T::* ptr;
+    member_t T::* ptr;
 };
 
 // Deduction guide so Field{"name", &Struct::member} just works.
-template <typename T, typename MemberT>
-Field(std::string_view, MemberT T::*) -> Field<T, MemberT>;
+template <typename T, typename member_t>
+Field(std::string_view, member_t T::*) -> Field<T, member_t>;
 
 namespace detail
 {
@@ -45,8 +45,8 @@ namespace detail
     {
     };
 
-    template <typename T, typename MemberT>
-    struct is_field<Field<T, MemberT>> : std::true_type
+    template <typename T, typename member_t>
+    struct is_field<Field<T, member_t>> : std::true_type
     {
     };
 

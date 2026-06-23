@@ -32,7 +32,7 @@ namespace configuration
     {
     public:
         explicit Configuration(const std::string_view config_path = DEFAULT_CONFIG_PATH)
-            : config_path_{config_path}
+            : config_path{config_path}
         {
             load();
         }
@@ -104,7 +104,7 @@ namespace configuration
                 return nullptr;
             }
 
-            nlohmann::json const* current = &json_;
+            nlohmann::json const* current = &json;
             std::size_t pos = 0;
 
             while (pos < key.size())
@@ -136,25 +136,25 @@ namespace configuration
 
         void load()
         {
-            std::ifstream file{config_path_};
+            std::ifstream file{config_path};
             if (!file.is_open())
             {
-                throw std::runtime_error{"Cannot open configuration file: " + config_path_};
+                throw std::runtime_error{"Cannot open configuration file: " + config_path};
             }
             try
             {
-                json_ = nlohmann::json::parse(file);
+                json = nlohmann::json::parse(file);
             }
             catch (nlohmann::json::parse_error const& e)
             {
                 throw std::runtime_error{
-                    "JSON parse error in '" + config_path_ + "': " + e.what()
+                    "JSON parse error in '" + config_path + "': " + e.what()
                 };
             }
         }
 
-        std::string config_path_;
-        nlohmann::json json_;
+        std::string config_path;
+        nlohmann::json json;
     };
 } // namespace configuration
 

@@ -101,7 +101,7 @@ struct Application : Reflectable<Application>
 // Fixture
 // ---------------------------------------------------------------------------
 
-class ConfigurationTest : public ::testing::Test
+class configuration_test : public ::testing::Test
 {
 protected:
     void SetUp() override
@@ -135,7 +135,7 @@ protected:
 // Tests
 // ---------------------------------------------------------------------------
 
-TEST_F(ConfigurationTest, GetPrimitiveTypes)
+TEST_F(configuration_test, GetPrimitiveTypes)
 {
     write_json({
         {"enabled", false}, {"port", 8080}, {"timeout", 3.14},
@@ -151,7 +151,7 @@ TEST_F(ConfigurationTest, GetPrimitiveTypes)
     EXPECT_EQ(config.get<int>("count"), 42);
 }
 
-TEST_F(ConfigurationTest, GetWithDefault)
+TEST_F(configuration_test, GetWithDefault)
 {
     write_json({{"enabled", true}});
 
@@ -163,7 +163,7 @@ TEST_F(ConfigurationTest, GetWithDefault)
     EXPECT_EQ(config.get<std::string>("path", "./default.db"), "./default.db");
 }
 
-TEST_F(ConfigurationTest, GetNestedKeys)
+TEST_F(configuration_test, GetNestedKeys)
 {
     nlohmann::json j;
     j["cache"]["enabled"] = false;
@@ -178,7 +178,7 @@ TEST_F(ConfigurationTest, GetNestedKeys)
     EXPECT_EQ(config.get<int>("server.port", 8080), 9090);
 }
 
-TEST_F(ConfigurationTest, GetDeepNestedKeys)
+TEST_F(configuration_test, GetDeepNestedKeys)
 {
     nlohmann::json j;
     j["a"]["b"]["c"]["d"] = 42;
@@ -192,7 +192,7 @@ TEST_F(ConfigurationTest, GetDeepNestedKeys)
     EXPECT_EQ(config.get<int>("a.b.c.missing", -1), -1);
 }
 
-TEST_F(ConfigurationTest, HasMethod)
+TEST_F(configuration_test, HasMethod)
 {
     nlohmann::json j;
     j["enabled"] = true;
@@ -209,7 +209,7 @@ TEST_F(ConfigurationTest, HasMethod)
     EXPECT_FALSE(config.has("")); // empty key guard
 }
 
-TEST_F(ConfigurationTest, WrongTypeThrows)
+TEST_F(configuration_test, WrongTypeThrows)
 {
     write_json({{"port", "not_a_number"}});
 
@@ -218,7 +218,7 @@ TEST_F(ConfigurationTest, WrongTypeThrows)
     EXPECT_THROW((void)config.get<int>("port"), std::runtime_error);
 }
 
-TEST_F(ConfigurationTest, GetTypedObject)
+TEST_F(configuration_test, GetTypedObject)
 {
     nlohmann::json j;
     j["cache"] = {{"enabled", false}, {"path", "/tmp/cache.db"}, {"default_ttl_seconds", 600}};
@@ -234,7 +234,7 @@ TEST_F(ConfigurationTest, GetTypedObject)
 
 // Key advantage over NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE: absent fields keep
 // their C++ default values instead of throwing.
-TEST_F(ConfigurationTest, GetTypedObjectPartialJson)
+TEST_F(configuration_test, GetTypedObjectPartialJson)
 {
     nlohmann::json j;
     j["cache"] = {{"enabled", false}}; // path and default_ttl_seconds absent
@@ -248,7 +248,7 @@ TEST_F(ConfigurationTest, GetTypedObjectPartialJson)
     EXPECT_EQ(cache.default_ttl_seconds, 300); // C++ default preserved
 }
 
-TEST_F(ConfigurationTest, GetTypedObjectWithDefault)
+TEST_F(configuration_test, GetTypedObjectWithDefault)
 {
     write_json(nlohmann::json::object());
 
@@ -260,7 +260,7 @@ TEST_F(ConfigurationTest, GetTypedObjectWithDefault)
     EXPECT_EQ(cache.default_ttl_seconds, 300);
 }
 
-TEST_F(ConfigurationTest, TryGetReturnsNulloptForMissingKey)
+TEST_F(configuration_test, TryGetReturnsNulloptForMissingKey)
 {
     write_json({{"port", 8080}, {"path", "/tmp/test"}});
 
@@ -272,7 +272,7 @@ TEST_F(ConfigurationTest, TryGetReturnsNulloptForMissingKey)
     EXPECT_EQ(config.try_get<std::string>("path").value(), "/tmp/test");
 }
 
-TEST_F(ConfigurationTest, TryGetThrowsOnConversionError)
+TEST_F(configuration_test, TryGetThrowsOnConversionError)
 {
     write_json({{"port", "not_a_number"}});
 
@@ -280,7 +280,7 @@ TEST_F(ConfigurationTest, TryGetThrowsOnConversionError)
     EXPECT_THROW((void)config.try_get<int>("port"), std::runtime_error);
 }
 
-TEST_F(ConfigurationTest, GetNestedReflectableTypes)
+TEST_F(configuration_test, GetNestedReflectableTypes)
 {
     nlohmann::json j;
     j["app"]["server"]["host"] = "0.0.0.0";
@@ -299,7 +299,7 @@ TEST_F(ConfigurationTest, GetNestedReflectableTypes)
     EXPECT_EQ(app.cache.default_ttl_seconds, 300); // C++ default preserved
 }
 
-TEST_F(ConfigurationTest, GetTypedArray)
+TEST_F(configuration_test, GetTypedArray)
 {
     nlohmann::json j;
     j["accounts"] = {
@@ -325,13 +325,13 @@ TEST_F(ConfigurationTest, GetTypedArray)
     EXPECT_EQ(accounts[1].save_folder, "home");
 }
 
-TEST_F(ConfigurationTest, MalformedJsonThrows)
+TEST_F(configuration_test, MalformedJsonThrows)
 {
     std::ofstream{config_path} << "{ invalid json }";
     EXPECT_THROW(configuration::Configuration{config_path.string()}, std::runtime_error);
 }
 
-TEST_F(ConfigurationTest, MissingFileThrows)
+TEST_F(configuration_test, MissingFileThrows)
 {
     EXPECT_THROW(
         configuration::Configuration{(test_dir / "nonexistent.json").string()},
