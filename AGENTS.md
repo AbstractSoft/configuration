@@ -4,7 +4,7 @@ Header-only C++23 configuration library with compile-time reflection. CMake, CLi
 
 ## Version
 
-v1.0.1 — `main` branch, pushed to GitHub.
+v1.0.2 — `main` branch, pushed to GitHub.
 
 ## Build
 
