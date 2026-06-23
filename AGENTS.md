@@ -4,7 +4,7 @@ Header-only C++23 configuration library with compile-time reflection. CMake, CLi
 
 ## Version
 
-v1.0.0 — `main` branch, pushed to GitHub.
+v1.0.1 — `main` branch, pushed to GitHub.
 
 ## Build
 
@@ -38,7 +38,7 @@ cd cmake-build-debug && ctest --output-on-failure
 
 ## Structure
 
-- `include/configuration.hpp` — Configuration class (flat key-value lookup with dot notation)
+- `include/configuration.hpp` — Configuration class (flat key-value lookup with dot notation, private `convert<T>()` helper)
 - `include/field_reflection.hpp` — Reflectable CRTP base + Field descriptor for typed objects + `HasFields` concept
 - `tests/configuration_test.cpp` — unit tests (synthetic JSON, temp files)
 - `CMakeLists.txt` — CMake 3.27+, FetchContent for nlohmann/json v3.11.3 + GoogleTest v1.14.0
@@ -47,6 +47,11 @@ cd cmake-build-debug && ctest --output-on-failure
 ## Clang-tidy
 
 `.clang-tidy` applies only to `include/` files. Checks: `cppcoreguidelines-init-variables`, `llvm-include-order`, `readability-braces-around-statements`, `readability-identifier-length` (min 2 chars for variables, parameters, loop counters, exceptions, bindings). Default checks are cleared — only listed rules apply.
+
+## Coding Conventions
+
+- Internal identifiers (member variables, template parameters, test fixture classes) use `snake_case`.
+- Public API names (classes, concepts, type aliases) use `PascalCase`.
 
 ## Gotchas
 
