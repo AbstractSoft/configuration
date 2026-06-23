@@ -337,3 +337,85 @@ TEST_F(configuration_test, MissingFileThrows)
         configuration::Configuration{(test_dir / "nonexistent.json").string()},
         std::runtime_error);
 }
+
+TEST_F(configuration_test, DefaultConstructorCreatesEmptyJson)
+{
+    configuration::Configuration config;
+    EXPECT_EQ(config.get<int>("missing", 42), 42);
+    EXPECT_FALSE(config.has("anything"));
+}
+
+TEST_F(configuration_test, SetPrimitiveValue)
+{
+    configuration::Configuration config;
+    config.set("port", 8080);
+    config.set("enabled", true);
+    config.set("name", std::string{"test"});
+
+    EXPECT_EQ(config.get<int>("port"), 8080);
+    EXPECT_TRUE(config.get<bool>("enabled"));
+    EXPECT_EQ(config.get<std::string>("name"), "test");
+}
+
+TEST_F(configuration_test, SetNestedValue)
+{
+    configuration::Configuration config;
+    config.set("server.host", "0.0.0.0");
+    config.set("server.port", 3000);
+    config.set("cache.enabled", false);
+
+    EXPECT_EQ(config.get<std::string>("server.host"), "0.0.0.0");
+    EXPECT_EQ(config.get<int>("server.port"), 3000);
+    EXPECT_FALSE(config.get<bool>("cache.enabled"));
+}
+
+TEST_F(configuration_test, SetOverwritesExistingValue)
+{
+    write_json({{"port", 8080}});
+    configuration::Configuration config{config_path.string()};
+
+    config.set("port", 9090);
+    EXPECT_EQ(config.get<int>("port"), 9090);
+}
+
+TEST_F(configuration_test, SetThrowsOnNonObjectPath)
+{
+    write_json({{"port", 8080}});
+    configuration::Configuration config{config_path.string()};
+
+    EXPECT_THROW(config.set("port.host", "localhost"), std::runtime_error);
+}
+
+TEST_F(configuration_test, SaveWritesToFile)
+{
+    configuration::Configuration config;
+    config.set("port", 8080);
+    config.set("host", "0.0.0.0");
+    config.save_as(config_path.string());
+
+    std::ifstream file{config_path};
+    nlohmann::json saved = nlohmann::json::parse(file);
+    EXPECT_EQ(saved["port"], 8080);
+    EXPECT_EQ(saved["host"], "0.0.0.0");
+}
+
+TEST_F(configuration_test, SaveAsWritesToDifferentPath)
+{
+    configuration::Configuration config;
+    config.set("value", 42);
+
+    auto save_path = test_dir / "output.json";
+    config.save_as(save_path.string());
+
+    std::ifstream file{save_path};
+    nlohmann::json saved = nlohmann::json::parse(file);
+    EXPECT_EQ(saved["value"], 42);
+}
+
+TEST_F(configuration_test, SaveAsThrowsOnInvalidPath)
+{
+    configuration::Configuration config;
+    config.set("value", 42);
+
+    EXPECT_THROW(config.save_as("/nonexistent/directory/config.json"), std::runtime_error);
+}

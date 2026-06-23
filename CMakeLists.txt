@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27)
-project(configuration VERSION 1.0.0 LANGUAGES CXX)
+project(configuration VERSION 1.0.2 LANGUAGES CXX)
 
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://github.com/AbstractSoft/configuration")
 set(CMAKE_PROJECT_DESCRIPTION "JSON based configuration library")

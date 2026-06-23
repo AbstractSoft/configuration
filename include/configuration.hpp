@@ -31,7 +31,9 @@ namespace configuration
     class Configuration
     {
     public:
-        explicit Configuration(const std::string_view config_path = DEFAULT_CONFIG_PATH)
+        Configuration() = default;
+
+        explicit Configuration(const std::string_view config_path)
             : config_path{config_path}
         {
             load();
@@ -71,6 +73,64 @@ namespace configuration
         [[nodiscard]] bool has(const std::string_view key) const
         {
             return find_key(key) != nullptr;
+        }
+
+        // Sets the value at `key` (dot-separated for nesting), creating
+        // intermediate objects as needed. Throws std::runtime_error if a
+        // non-object node is encountered mid-path.
+        template <typename T>
+        void set(const std::string_view key, T const& value)
+        {
+            nlohmann::json* current = &json;
+            std::size_t pos = 0;
+
+            while (pos < key.size())
+            {
+                const auto dot = key.find('.', pos);
+                auto part = (dot == std::string_view::npos)
+                                ? key.substr(pos)
+                                : key.substr(pos, dot - pos);
+
+                if (!current->is_object())
+                {
+                    throw std::runtime_error{
+                        "Configuration: cannot set key '" + std::string(key) +
+                        "' — path segment '" + std::string(part) +
+                        "' is not an object"
+                    };
+                }
+
+                if (dot == std::string_view::npos)
+                {
+                    current->operator[](std::string(part)) = value;
+                    return;
+                }
+
+                if (!current->contains(std::string(part)))
+                {
+                    (*current)[std::string(part)] = nlohmann::json::object();
+                }
+
+                current = &(*current)[std::string(part)];
+                pos = dot + 1;
+            }
+        }
+
+        // Saves the current JSON state to the config file.
+        void save() const
+        {
+            save_as(config_path);
+        }
+
+        // Saves the current JSON state to a different path.
+        void save_as(const std::string_view path) const
+        {
+            std::ofstream file{std::string(path)};
+            if (!file.is_open())
+            {
+                throw std::runtime_error{"Cannot open configuration file for writing: " + std::string(path)};
+            }
+            file << json.dump(4);
         }
 
     private:
@@ -150,7 +210,7 @@ namespace configuration
         }
 
         std::string config_path;
-        nlohmann::json json;
+        nlohmann::json json = nlohmann::json::object();
     };
 } // namespace configuration
 
