@@ -17,6 +17,11 @@ A header-only C++23 configuration library with compile-time reflection.
 - C++23 compiler (Apple Clang 15+, GCC 12+, Clang 15+)
 - [nlohmann/json](https://github.com/nlohmann/json) v3.11+ (fetched automatically via CMake FetchContent)
 
+## Learn How This Was Built
+
+If you want a step-by-step walkthrough of every design decision — CRTP reflection, dot-notation traversal, CMake integration, and testing — the full course is available on LeanPub:
+[How to Build a Typed JSON Configuration Library in Modern C++](https://leanpub.com/c/modern_cpp23_config_lib)
+
 ## Usage
 
 ### Primitive types
