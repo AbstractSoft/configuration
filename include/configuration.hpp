@@ -51,17 +51,7 @@ namespace configuration
             {
                 return default_value;
             }
-            try
-            {
-                return node->get<T>();
-            }
-            catch (nlohmann::json::exception const& e)
-            {
-                throw std::runtime_error{
-                    "Configuration: cannot convert key '" + std::string(key) +
-                    "' to the requested type: " + e.what()
-                };
-            }
+            return convert<T>(key, *node);
         }
 
         // Returns the value at `key` as std::optional<T>, or std::nullopt if absent.
@@ -74,9 +64,22 @@ namespace configuration
             {
                 return std::nullopt;
             }
+            return convert<T>(key, *node);
+        }
+
+        // Returns true if the key exists (leaf or intermediate node).
+        [[nodiscard]] bool has(const std::string_view key) const
+        {
+            return find_key(key) != nullptr;
+        }
+
+    private:
+        template <typename T>
+        [[nodiscard]] static T convert(const std::string_view key, nlohmann::json const& node)
+        {
             try
             {
-                return node->get<T>();
+                return node.get<T>();
             }
             catch (nlohmann::json::exception const& e)
             {
@@ -87,13 +90,6 @@ namespace configuration
             }
         }
 
-        // Returns true if the key exists (leaf or intermediate node).
-        [[nodiscard]] bool has(const std::string_view key) const
-        {
-            return find_key(key) != nullptr;
-        }
-
-    private:
         // Traverses dot-separated key segments. Returns nullptr if any segment
         // is missing, or if a non-object node is encountered mid-path.
         // An empty key returns nullptr.
@@ -109,7 +105,7 @@ namespace configuration
 
             while (pos < key.size())
             {
-                auto dot = key.find('.', pos);
+                const auto dot = key.find('.', pos);
                 auto part = (dot == std::string_view::npos)
                                 ? key.substr(pos)
                                 : key.substr(pos, dot - pos);
